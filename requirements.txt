@@ -1,0 +1,6 @@
+pygame-ce
+pygame_gui
+numpy
+python-dotenv
+pymunk
+pillow
