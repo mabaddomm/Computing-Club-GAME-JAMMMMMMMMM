@@ -9,13 +9,12 @@ screen = pygame.display.set_mode((sw, sh))
 RUNNING = 0
 FADE_OUT = 1
 LEVEL_LOADED = 2
+PAUSED = 3
 current_state = RUNNING
 fade_alpha = 0
 fade_speed = 8
 font = pygame.font.Font(None, 36)
-SLIDE_IN = 3
-slide_target = None
-slide_speed = 6     # tune for faster/slower sliding
+
 
 
 maps = {0: ["0_winter.png", "0_winter_top.png", "0_walls.png"],
@@ -116,7 +115,6 @@ while running:
         new_x = player.x + dx
         new_y = player.y + dy
 
-
         temp_rect_x = pygame.Rect(new_x, player.y, player.width, player.height)
         if not check_collision(temp_rect_x, collisions):
             player.x = new_x
@@ -133,6 +131,8 @@ while running:
                 current_state = FADE_OUT
                 print("Door activated! Starting fade out.")
                 break
+        if keys[pygame.K_p]:
+            current_state = PAUSED
 
         current_neighbors = neighbors[current_map_key]
         if player.top < 0:
@@ -141,7 +141,7 @@ while running:
             if possible_maps is not None:
                 # Randomly select the next map ID from the list
                 next_map_key = random.choice(possible_maps)
-                map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'top', player, maps)
+                current_map_key, map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'top', player, maps)
             else:
                 player.top = 0  # Prevent moving past the screen edge
         elif player.bottom > sh:
@@ -150,7 +150,7 @@ while running:
             if possible_maps is not None:
                 # Randomly select the next map ID from the list
                 next_map_key = random.choice(possible_maps)
-                map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'bottom', player, maps)
+                current_map_key, map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'bottom', player, maps)
             else:
                 player.bottom = sh
         elif player.left < 0:
@@ -159,7 +159,7 @@ while running:
             if possible_maps is not None:
                 # Randomly select the next map ID from the list
                 next_map_key = random.choice(possible_maps)
-                map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'left', player, maps)
+                current_map_key, map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'left', player, maps)
             else:
                 player.left = 0
         elif player.right > sw:
@@ -168,7 +168,7 @@ while running:
             if possible_maps is not None:
                 # Randomly select the next map ID from the list
                 next_map_key = random.choice(possible_maps)
-                map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'right', player, maps)
+                current_map_key, map_bottom, top, walls, collisions, door_rect = switch_map(next_map_key, 'right', player, maps)
             else:
                 player.right = sw
 
@@ -233,7 +233,14 @@ while running:
             current_state = RUNNING
             fade_alpha = 0
             # Force player to respawn near the door location on map 0
-            switch_map(entered_map, 'door', player, maps, player_x=entered_x, player_y=(entered_y))
+            current_map_key, map_bottom, top, walls, collisions, door_rect = switch_map(entered_map, 'door', player, maps, player_x=entered_x, player_y=(entered_y))
+
+    elif current_state == PAUSED:
+        screen.fill((0, 0, 0))
+        level_text = font.render("PAUSED ------ press c to continue", True, (255, 255, 255))
+        text_rect = level_text.get_rect(center=(sw // 2, sh // 2))
+        screen.blit(level_text, text_rect)
+        if keys[pygame.K_c]: current_state = RUNNING
 
 
     pygame.display.update()
