@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+import math
 
 def load_png(image, size):
     png = pygame.image.load(image).convert_alpha()
@@ -30,7 +31,6 @@ def resolve_spawn_collision_advanced(player, collisions, max_radius=120, step=4)
     Expands in circles around spawn until a free position is found.
     Guarantees escape from diagonal, tight, or edge-wrapped collisions.
     """
-
     # If already safe, we’re done
     if not any(player.colliderect(c) for c in collisions):
         return
@@ -42,8 +42,8 @@ def resolve_spawn_collision_advanced(player, collisions, max_radius=120, step=4)
         for angle in range(0, 360, 15):
             rad = angle * 3.14159 / 180
 
-            new_x = original_x + int(radius * pygame.math.cos(rad))
-            new_y = original_y + int(radius * pygame.math.sin(rad))
+            new_x = original_x + int(radius * math.cos(rad))
+            new_y = original_y + int(radius * math.sin(rad))
 
             player.x = new_x
             player.y = new_y
@@ -81,7 +81,7 @@ def switch_map(new_map_key, entry_side, player,  maps, sw=1280, sh=720, player_x
         player.x = player_x
         player.y = player_y + 45
 
-    return map_bottom, top, walls, collisions, door_rect
+    return current_map_key, map_bottom, top, walls, collisions, door_rect
 
 
 def make_door(current_map_key):
