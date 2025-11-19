@@ -70,6 +70,9 @@ class ExampleLevel(Level):
         print(f"Level {self.name} completed!")
         # Could switch to next level or show victory screen
         # self.set_scene(1)  # Switch to victory scene
+    def render(self, screen):
+        """Render the level"""
+        super.render(screen)
 
 
 # ============================================================================
