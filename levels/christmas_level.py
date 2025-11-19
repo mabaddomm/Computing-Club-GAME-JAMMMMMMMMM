@@ -3,7 +3,7 @@
 import pygame
 import random
 from game import Level
-from scenes import Chunk, Interior
+from scenes import Chunk, Interior, ChristmasInterior, MockInterior
 from game_objects import Player
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 
@@ -89,6 +89,9 @@ class ChristmasLevel(Level):
         
         # Debug mode
         self.debug_mode = False
+        
+        # Testing mode - use mock interior for all doors (easier testing)
+        self.use_mock_interior = True  # Set to False to use goal chunk only
         
         # Create player
         self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, speed=200)
@@ -316,20 +319,36 @@ class ChristmasLevel(Level):
         is_goal_chunk = (current_map_id == 8)
         
         # Create interior
-        if is_goal_chunk:
-            # Special goal interior (placeholder for now - just uses different background)
-            interior = Interior("Goal Interior")
-            interior.background_color = (20, 50, 20)  # Dark green for goal area (placeholder)
+        if self.use_mock_interior:
+            # TESTING MODE: Use mock interior for all doors
+            interior = MockInterior(level=self)
+            print("🧪 MOCK INTERIOR - Testing stealth mechanics")
+            
+            # Position player near middle bottom of screen
+            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
+            self.player.y = SCREEN_HEIGHT - self.player.height - 50
+            
             interior.set_player(self.player)
-            print("🎄 You've entered the GOAL CHUNK interior!")
+        elif is_goal_chunk:
+            # Special Christmas stealth interior with enemies and presents!
+            interior = ChristmasInterior("Goal Interior - Christmas Challenge", level=self)
+            print("🎄 You've entered the GOAL CHUNK - Stealth Challenge!")
+            print("   Collect presents while avoiding enemies!")
+            
+            # Position player near middle bottom of screen
+            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
+            self.player.y = SCREEN_HEIGHT - self.player.height - 50
+            
+            interior.set_player(self.player)
         else:
-            # Regular interior (dark grey background)
+            # Regular interior (simple dark grey background)
             interior = Interior("Interior")
+            
+            # Position player near middle bottom of screen
+            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
+            self.player.y = SCREEN_HEIGHT - self.player.height - 50
+            
             interior.set_player(self.player)
-        
-        # Position player near middle bottom of screen
-        self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
-        self.player.y = SCREEN_HEIGHT - self.player.height - 50  # 50 pixels from bottom
         
         self.current_interior = interior
         self.is_in_interior = True

@@ -11,8 +11,8 @@ def main():
     game = Game(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE)
     
     # Create and set the starting level (using inheritance - recommended)
-    level = ChristmasLevel()
-    game.set_level(level)
+    level1 = ChristmasLevel()
+    game.set_level(level1)
     
     # Run the game
     game.run()
