@@ -1,9 +1,9 @@
 """Game settings and constants"""
 
 # Screen settings
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-SCREEN_TITLE = "Game Framework Example"
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+SCREEN_TITLE = "Topdown Game"
 FPS = 60
 
 # Game settings

@@ -2,7 +2,7 @@
 
 from game import Game
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
-from levels.example_level import ExampleLevel
+from levels.christmas_level import ChristmasLevel
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     game = Game(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE)
     
     # Create and set the starting level (using inheritance - recommended)
-    level = ExampleLevel()
+    level = ChristmasLevel()
     game.set_level(level)
     
     # Run the game
