@@ -43,7 +43,7 @@ class Chunk(Scene):
             return
         
         map_files = self.maps_dict[map_id]
-        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'images', 'christmas')
         
         # Load bottom layer
         bottom_path = os.path.join(assets_dir, map_files[0])

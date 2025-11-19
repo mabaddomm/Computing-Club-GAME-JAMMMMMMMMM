@@ -5,7 +5,7 @@ import random
 from game import Level
 from scenes import Chunk, Interior
 from game_objects import Player
-from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 
 
 class ChristmasLevel(Level):
@@ -14,7 +14,7 @@ class ChristmasLevel(Level):
     def __init__(self):
         super().__init__("Christmas Level")
         
-        # Map data - 8 different map templates
+        # Map data - 8 basic winter templates + 1 goal chunk
         self.maps = {
             0: ["0_winter.png", "0_winter_top.png", "0_walls.png"],
             1: ["1_winter.png", "1_winter_top.png", "1_walls.png"],
@@ -23,7 +23,8 @@ class ChristmasLevel(Level):
             4: ["4_winter.png", "4_winter_top.png", "4_walls.png"],
             5: ["5_winter.png", "5_winter_top.png", "5_walls.png"],
             6: ["6_winter.png", "6_winter_top.png", "6_walls.png"],
-            7: ["7_winter.png", "7_winter_top.png", "7_walls.png"]
+            7: ["7_winter.png", "7_winter_top.png", "7_walls.png"],
+            8: ["0_winter.png", "0_winter_top.png", "0_walls.png"]  # Placeholder for goal chunk (using map 0 for now)
         }
         
         # Path configuration - defines which edges have paths for each map
@@ -36,12 +37,13 @@ class ChristmasLevel(Level):
             4: {'top': True, 'bottom': False, 'left': True, 'right': False},   # Top-left corner
             5: {'top': False, 'bottom': True, 'left': False, 'right': True},   # Bottom-right corner
             6: {'top': False, 'bottom': True, 'left': True, 'right': False},   # Bottom-left corner
-            7: {'top': False, 'bottom': False, 'left': False, 'right': False}  # Dead end/clearing
+            7: {'top': False, 'bottom': False, 'left': False, 'right': False}, # Dead end/clearing
+            8: {'top': False, 'bottom': True, 'left': False, 'right': False}   # Goal chunk (one entrance from bottom)
         }
         
         # Chunk unlock status
         # Chunks 0-7 are unlocked by default (basic winter maps)
-        # Additional chunks can be added with unlocked=False for progression
+        # Chunk 8 is the goal chunk (unlocks after collecting presents)
         self.chunk_unlocked = {
             0: True,
             1: True,
@@ -50,10 +52,8 @@ class ChristmasLevel(Level):
             4: True,
             5: True,
             6: True,
-            7: True
-            # Future special chunks:
-            # 8: False,  # Boss/Goal chunk (unlocks after collecting items)
-            # 9: False,  # Secret area
+            7: True,
+            8: False  # Goal chunk (unlocks after collecting L1_PRESENT_ITEM_GOAL presents)
         }
         
         # Special/Unlockable chunks configuration
@@ -68,9 +68,9 @@ class ChristmasLevel(Level):
             # }
         }
         
-        # Game state for unlocking (will be used by items system later)
-        self.items_collected = 0  # Placeholder for future item collection
-        self.unlock_threshold = 10  # Number of items needed to unlock special chunks
+        # Game state - present collection
+        self.presents_collected = 0
+        self.present_goal = L1_PRESENT_ITEM_GOAL  # Number of presents needed to unlock goal chunk
         
         # Valid neighbors based on path alignment
         # Only chunks with matching path edges can be neighbors
@@ -101,6 +101,16 @@ class ChristmasLevel(Level):
         self.door_entry_y = 0
         self.door_entry_chunk_pos = (0, 0)
     
+    def collect_present(self):
+        """Collect a present and check if goal chunk should be unlocked"""
+        self.presents_collected += 1
+        print(f"🎁 Present collected! ({self.presents_collected}/{self.present_goal})")
+        
+        # Check if we've reached the goal and should unlock the goal chunk
+        if self.presents_collected >= self.present_goal and not self.chunk_unlocked[8]:
+            self.unlock_chunk(8)
+            print(f"🎄 You've collected enough presents! The goal chunk is now unlocked!")
+    
     def unlock_chunk(self, chunk_id):
         """Unlock a chunk, making it available for generation
         
@@ -126,7 +136,8 @@ class ChristmasLevel(Level):
         """
         neighbors = {}
         
-        for map_id in range(8):
+        # Include goal chunk (map 8) in the neighbor calculation
+        for map_id in range(9):  # Changed from range(8) to range(9)
             neighbors[map_id] = {
                 'top': [],
                 'bottom': [],
@@ -135,7 +146,7 @@ class ChristmasLevel(Level):
             }
             
             # For each direction, find maps that can connect
-            for other_id in range(8):
+            for other_id in range(9):  # Changed from range(8) to range(9)
                 # Don't allow same map as neighbor
                 if map_id == other_id:
                     continue
@@ -207,8 +218,8 @@ class ChristmasLevel(Level):
         else:
             # Generate new chunk based on neighboring chunks
             # Check all four neighbors to find valid maps
-            # Start with all unlocked maps only
-            valid_maps = set([map_id for map_id in range(8) if self.chunk_unlocked.get(map_id, False)])
+            # Start with all unlocked maps only (including goal chunk if unlocked)
+            valid_maps = set([map_id for map_id in range(9) if self.chunk_unlocked.get(map_id, False)])
             
             # Check top neighbor (y-1)
             top_neighbor = (chunk_x, chunk_y - 1)
@@ -300,9 +311,21 @@ class ChristmasLevel(Level):
         self.door_entry_y = self.player.y
         self.door_entry_chunk_pos = self.current_chunk_pos
         
-        # Create interior (no chunk - just dark grey background)
-        interior = Interior("Interior")
-        interior.set_player(self.player)
+        # Check if this is the goal chunk
+        current_map_id = self.generated_chunks.get(self.current_chunk_pos, 0)
+        is_goal_chunk = (current_map_id == 8)
+        
+        # Create interior
+        if is_goal_chunk:
+            # Special goal interior (placeholder for now - just uses different background)
+            interior = Interior("Goal Interior")
+            interior.background_color = (20, 50, 20)  # Dark green for goal area (placeholder)
+            interior.set_player(self.player)
+            print("🎄 You've entered the GOAL CHUNK interior!")
+        else:
+            # Regular interior (dark grey background)
+            interior = Interior("Interior")
+            interior.set_player(self.player)
         
         # Position player near middle bottom of screen
         self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
@@ -344,6 +367,9 @@ class ChristmasLevel(Level):
             if event.key == pygame.K_BACKSLASH:
                 self.debug_mode = not self.debug_mode
                 print(f"Debug mode: {'ON' if self.debug_mode else 'OFF'}")
+            # TEST: Press P to collect a present (for testing)
+            elif event.key == pygame.K_p:
+                self.collect_present()
         
         # Pass events to parent
         super().handle_event(event)
@@ -414,6 +440,11 @@ class ChristmasLevel(Level):
             chunks_text = f"Chunks explored: {len(self.generated_chunks)}"
             text_chunks = font.render(chunks_text, True, (148, 87, 235))
             screen.blit(text_chunks, (10, 130))
+            
+            # Show presents collected
+            presents_text = f"Presents: {self.presents_collected}/{self.present_goal}"
+            text_presents = font.render(presents_text, True, (255, 215, 0))  # Gold color
+            screen.blit(text_presents, (10, 170))
             
             # Debug mode indicator
             debug_text = font.render("DEBUG MODE (Press \\ to toggle)", True, (255, 255, 0))
