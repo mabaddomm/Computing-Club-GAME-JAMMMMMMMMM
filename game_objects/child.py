@@ -16,13 +16,13 @@ class Child(Enemy):
     CHILD_WIDTH = SPRITE_WIDTH_ON_SHEET * SPRITE_SCALE_FACTOR  # 48px
     CHILD_HEIGHT = SPRITE_HEIGHT_ON_SHEET * SPRITE_SCALE_FACTOR  # 96px
     
-    def __init__(self, x, y, speed=100):
+    def __init__(self, x, y, speed=60):
         """Initialize child enemy at position
         
         Args:
             x: X position
             y: Y position
-            speed: Movement speed (pixels per second)
+            speed: Movement speed (pixels per second, default 60 - slower than adults)
         """
         # Call GameObject's __init__ directly to avoid Enemy's __init__
         from game import GameObject

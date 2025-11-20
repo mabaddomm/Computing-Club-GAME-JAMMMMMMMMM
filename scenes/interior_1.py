@@ -113,7 +113,7 @@ class Interior_1(Scene):
         
         # Restore enemies at their saved positions
         for (enemy_x, enemy_y) in saved_state.enemy_positions:
-            enemy = Child(enemy_x, enemy_y, speed=100)
+            enemy = Child(enemy_x, enemy_y)  # Use default speed (60)
             self.enemies.append(enemy)
         
         # Restore presents with their collected status
@@ -174,7 +174,7 @@ class Interior_1(Scene):
             pt = self.random_point_in_area(area, Child.CHILD_WIDTH, Child.CHILD_HEIGHT, margin=8)
             if pt:
                 px, py = pt
-                enemies.append(Child(px, py, speed=100))
+                enemies.append(Child(px, py))  # Use default speed (60)
         
         print(f"👶 Spawned {len(enemies)} Child enemies")
         return enemies

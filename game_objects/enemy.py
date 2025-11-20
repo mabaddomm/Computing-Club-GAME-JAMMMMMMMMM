@@ -214,8 +214,9 @@ class Enemy(GameObject):
                 # Collision detected - revert and change direction
                 self.x = old_x
                 self.y = old_y
-                self.rect.x = int(self.x)
-                self.rect.y = int(self.y) + (self.ENEMY_HEIGHT - self.collision_height)
+                # Update rect using offsets (works for both Enemy and Child)
+                self.rect.x = int(self.x) + self.x_offset
+                self.rect.y = int(self.y) + self.y_offset
                 self.velocity_x = 0
                 self.velocity_y = 0
                 self.set_random_direction()
