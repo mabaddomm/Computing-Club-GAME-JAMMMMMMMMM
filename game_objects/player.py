@@ -15,6 +15,11 @@ class Player(GameObject):
     PLAYER_WIDTH = SPRITE_WIDTH_ON_SHEET * SPRITE_SCALE_FACTOR  # 72
     PLAYER_HEIGHT = SPRITE_HEIGHT_ON_SHEET * SPRITE_SCALE_FACTOR  # 128
     
+    # Hitbox configuration
+    MAIN_RECT_HEIGHT_RATIO = 0.75  # Main rect is 75% of sprite height (for enemy detection)
+    COLLISION_RECT_WIDTH_RATIO = 0.5  # Collision rect is 50% of sprite width
+    COLLISION_RECT_HEIGHT_RATIO = 0.5  # Collision rect is 50% of sprite height (for obstacles)
+    
     def __init__(self, x=0, y=0, speed=200):
         super().__init__(x, y)
         self.speed = speed  # Pixels per second
@@ -31,10 +36,17 @@ class Player(GameObject):
         self.frame_timer = 0
         self.frame_interval = 10  # Frames between animation updates
         
-        # Collision rect (smaller than sprite for feet/lower body)
-        self.collision_height = int(self.PLAYER_HEIGHT * 0.75)
+        # Two hitboxes:
+        # 1. Main rect - for enemy detection (larger)
+        self.collision_height = int(self.PLAYER_HEIGHT * self.MAIN_RECT_HEIGHT_RATIO)
         self.rect = pygame.Rect(int(self.x), int(self.y) + (self.PLAYER_HEIGHT - self.collision_height), 
                                 self.width, self.collision_height)
+        
+        # 2. Collision rect - for obstacles/walls (smaller, centered at feet)
+        collision_width = int(self.PLAYER_WIDTH * self.COLLISION_RECT_WIDTH_RATIO)
+        collision_height = int(self.PLAYER_HEIGHT * self.COLLISION_RECT_HEIGHT_RATIO)
+        self.collision_rect = pygame.Rect(0, 0, collision_width, collision_height)
+        self._update_collision_rect()
         
         # Lives and invulnerability (for stealth interiors)
         self.lives = 3
@@ -98,6 +110,19 @@ class Player(GameObject):
                 'idle_left': [placeholder],
                 'walk_left': [placeholder]
             }
+    
+    def _update_collision_rect(self):
+        """Update collision_rect position based on current player position
+        
+        Collision rect is centered horizontally and aligned at the bottom (feet)
+        """
+        collision_width = int(self.PLAYER_WIDTH * self.COLLISION_RECT_WIDTH_RATIO)
+        collision_height = int(self.PLAYER_HEIGHT * self.COLLISION_RECT_HEIGHT_RATIO)
+        x_offset = (self.PLAYER_WIDTH - collision_width) // 2  # Center horizontally
+        y_offset = self.PLAYER_HEIGHT - collision_height  # Align at bottom
+        
+        self.collision_rect.x = int(self.x) + x_offset
+        self.collision_rect.y = int(self.y) + y_offset
     
     def set_state(self, new_state):
         """Change animation state"""
@@ -190,9 +215,12 @@ class Player(GameObject):
             # Update position
             super().update(dt)
             
-            # Update collision rect (align with bottom of sprite)
+            # Update main rect (align with bottom of sprite)
             self.rect.x = int(self.x)
             self.rect.y = int(self.y) + (self.PLAYER_HEIGHT - self.collision_height)
+            
+            # Update collision_rect using helper method
+            self._update_collision_rect()
             
             # Handle invulnerability timer
             if not self.is_vulnerable:
@@ -201,34 +229,49 @@ class Player(GameObject):
                     self.is_vulnerable = True
     
     def check_collision(self, collision_rects):
-        """Check if player collides with any collision rect"""
+        """Check if player collides with any collision rect using the smaller collision_rect"""
         for rect in collision_rects:
-            if self.rect.colliderect(rect):
+            if self.collision_rect.colliderect(rect):
                 return True
         return False
     
     def resolve_collision(self, collision_rects, dt):
-        """Resolve collision by moving player back"""
+        """Resolve collision by moving player back using collision_rect"""
+        collision_width = int(self.PLAYER_WIDTH * self.COLLISION_RECT_WIDTH_RATIO)
+        collision_height = int(self.PLAYER_HEIGHT * self.COLLISION_RECT_HEIGHT_RATIO)
+        x_offset = (self.PLAYER_WIDTH - collision_width) // 2
+        y_offset = self.PLAYER_HEIGHT - collision_height
+        
         # Try moving back in X
         test_x = self.x - self.velocity_x * dt
-        test_rect_x = pygame.Rect(int(test_x), self.rect.y, self.width, self.collision_height)
-        if not any(test_rect_x.colliderect(rect) for rect in collision_rects):
+        test_collision_rect_x = pygame.Rect(
+            int(test_x) + x_offset,
+            int(self.y) + y_offset,
+            collision_width,
+            collision_height
+        )
+        if not any(test_collision_rect_x.colliderect(rect) for rect in collision_rects):
             self.x = test_x
         else:
             self.velocity_x = 0
         
         # Try moving back in Y
         test_y = self.y - self.velocity_y * dt
-        test_rect_y = pygame.Rect(int(self.x), int(test_y) + (self.PLAYER_HEIGHT - self.collision_height), 
-                                   self.width, self.collision_height)
-        if not any(test_rect_y.colliderect(rect) for rect in collision_rects):
+        test_collision_rect_y = pygame.Rect(
+            int(self.x) + x_offset,
+            int(test_y) + y_offset,
+            collision_width,
+            collision_height
+        )
+        if not any(test_collision_rect_y.colliderect(rect) for rect in collision_rects):
             self.y = test_y
         else:
             self.velocity_y = 0
         
-        # Update rect
+        # Update both rects
         self.rect.x = int(self.x)
         self.rect.y = int(self.y) + (self.PLAYER_HEIGHT - self.collision_height)
+        self._update_collision_rect()
     
     def lose_life(self):
         """Lose a life from physical collision"""
@@ -253,10 +296,13 @@ class Player(GameObject):
         self.velocity_x = 0
         self.velocity_y = 0
         
-        # Recalculate rect position based on collision height
-        # The y position needs adjustment for the large sprite vs small collision box
+        # Recalculate rect positions
+        # Main rect (enemy detection)
         self.rect.x = int(self.x)
         self.rect.y = int(self.y) + (self.PLAYER_HEIGHT - self.collision_height)
+        
+        # Collision rect (obstacles) using helper method
+        self._update_collision_rect()
         
         print(f"🔄 Player reset to position ({x}, {y})")
     

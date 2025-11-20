@@ -177,9 +177,9 @@ class ChristmasInterior(Scene):
                         if self.player.got_caught():
                             self._trigger_kickout()
             
-            # Check physical collision with enemies
+            # Check physical collision with enemies using collision_rect
             for enemy in self.enemies:
-                if self.player.rect.colliderect(enemy.rect):
+                if self.player.collision_rect.colliderect(enemy.rect):
                     if self.player.lose_life():
                         # Push player away
                         push_factor = 40
@@ -309,7 +309,10 @@ class ChristmasInterior(Scene):
             for enemy in self.enemies:
                 pygame.draw.rect(screen, (255, 0, 0), enemy.rect, 1)
             if self.player:
-                pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 1)
+                # Main rect (enemy detection) in yellow
+                pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
+                # Collision rect (obstacles) in green
+                pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
         
         # Render UI elements
         for ui in self.ui_elements:

@@ -1,8 +1,7 @@
 """Utility functions package"""
 
 # Import utility functions here
-# Example:
-# from utils.helpers import load_image, clamp_value
+from utils.audio import play_music, stop_music, set_music_volume
 
-__all__ = []
+__all__ = ['play_music', 'stop_music', 'set_music_volume']
 

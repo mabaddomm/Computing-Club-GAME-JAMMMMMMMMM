@@ -3,6 +3,7 @@
 from game import Game
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from levels.christmas_level import ChristmasLevel
+from scenes import Menu
 
 
 def main():
@@ -10,11 +11,14 @@ def main():
     # Create the game with settings from config
     game = Game(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE)
     
-    # Create and set the starting level (using inheritance - recommended)
-    level1 = ChristmasLevel()
-    game.set_level(level1)
+    # Create and set the menu
+    menu = Menu()
+    game.set_menu(menu)
     
-    # Run the game
+    # Store the level class (will be instantiated when start button is clicked)
+    game.initial_level_class = ChristmasLevel
+    
+    # Run the game (starts in menu)
     game.run()
 
 

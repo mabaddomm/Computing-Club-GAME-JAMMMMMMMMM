@@ -5,6 +5,7 @@ import random
 import math
 from game import Scene
 from game_objects import Wall, Child, Present, Tree
+from utils import play_music
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 
 
@@ -54,6 +55,9 @@ class Interior_1(Scene):
         # Player spawn and door
         self.player_spawn = (630, 550)
         self.door = pygame.Rect(640, 695, 50, 30)
+        DOOR_INTERACT_SIZE = 100
+        self.door_interaction_rect = self.door.inflate(DOOR_INTERACT_SIZE, DOOR_INTERACT_SIZE)
+        self.door_ready_to_exit = False
         
         # Game state
         self.game_state = 'PLAYING'  # PLAYING, CAUGHT, GAME_OVER, OUTSIDE
@@ -346,13 +350,51 @@ class Interior_1(Scene):
                     # Start collection
                     chosen.start_collection()
     
-    def update(self, dt):
+    def check_door_proximity(self, player):
+        """Checks if the player is within the door's interaction bubble.
+        
+        Args:
+            player: Player object
+            
+        Returns:
+            True if player is near door, False otherwise
+        """
+        if not player:
+            return False
+        return self.door_interaction_rect.colliderect(player.collision_rect)
+    
+    def render_door_ui(self, screen):
+        """Renders the interaction prompt for the door.
+        
+        Args:
+            screen: Pygame screen surface
+        """
+        # Draw interaction bubble
+        door_interact_color = (255, 200, 100, 30)
+        door_interact_surface = pygame.Surface(self.door_interaction_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(door_interact_surface, door_interact_color, 
+                        door_interact_surface.get_rect(), border_radius=5)
+        screen.blit(door_interact_surface, self.door_interaction_rect.topleft)
+        
+        # Draw prompt text
+        font = pygame.font.Font(None, 36)
+        interact_text = font.render("PRESS E TO LEAVE", True, (255, 255, 255))
+        text_rect = interact_text.get_rect(center=(self.door.centerx, self.door.top - 20))
+        screen.blit(interact_text, text_rect)
+    
+    def update(self, dt, e_pressed=False):
         """Update interior logic
         
         Args:
             dt: Delta time in seconds
+            e_pressed: True if 'E' key was pressed this frame
         """
         if self.game_state == 'PLAYING':
+            # Play interior music
+            play_music("assets/sounds/inside_music.mp3")
+            
+            # Check door proximity
+            self.door_ready_to_exit = self.check_door_proximity(self.player)
             # Handle player input
             if self.player:
                 keys = pygame.key.get_pressed()
@@ -371,6 +413,9 @@ class Interior_1(Scene):
                     # Check if collected
                     if present.is_collected and self.level:
                         self.level.collect_present()
+                        # Play collection sound
+                        if hasattr(self.level, 'collect_sound') and self.level.collect_sound:
+                            self.level.collect_sound.play()
                         print(f"✅ Present collected!")
             
             # Remove collected presents
@@ -381,8 +426,45 @@ class Interior_1(Scene):
             static_solids = walls_for_los + self.presents
             all_obstacles = static_solids + self.enemies
             
-            # Update player
+            # Update player with collision detection
             if self.player:
+                # Remove player from game_objects to prevent double update
+                # (We manually update player here with collision, so don't let super().update() do it again)
+                if self.player in self.game_objects:
+                    self.game_objects.remove(self.player)
+                
+                # Apply velocity and update position
+                self.player.update(dt)
+                
+                # Check and resolve collisions with walls and trees using collision_rect (small feet hitbox)
+                obstacles = self.walls + self.trees
+                for obstacle in obstacles:
+                    if self.player.collision_rect.colliderect(obstacle.rect):
+                        # Simple collision resolution - push player out
+                        # Determine which side to push from based on overlap
+                        overlap_left = self.player.collision_rect.right - obstacle.rect.left
+                        overlap_right = obstacle.rect.right - self.player.collision_rect.left
+                        overlap_top = self.player.collision_rect.bottom - obstacle.rect.top
+                        overlap_bottom = obstacle.rect.bottom - self.player.collision_rect.top
+                        
+                        # Find minimum overlap to resolve collision
+                        min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
+                        
+                        # Move the player by adjusting x/y, not collision_rect directly
+                        if min_overlap == overlap_left:
+                            self.player.x -= overlap_left
+                        elif min_overlap == overlap_right:
+                            self.player.x += overlap_right
+                        elif min_overlap == overlap_top:
+                            self.player.y -= overlap_top
+                        else:
+                            self.player.y += overlap_bottom
+                        
+                        # Update all rects after position change
+                        self.player.rect.x = int(self.player.x)
+                        self.player.rect.y = int(self.player.y) + (self.player.PLAYER_HEIGHT - self.player.collision_height)
+                        self.player._update_collision_rect()
+                
                 # Check if caught by any enemy
                 if not self.player.is_caught:
                     for enemy in self.enemies:
@@ -398,9 +480,9 @@ class Interior_1(Scene):
                                     self.game_state = 'CAUGHT'
                                     self.kickout_timer = self.kickout_duration
                 
-                # Check door collision
-                if self.player.rect.colliderect(self.door):
-                    print("🚪 Player reached door - exiting interior")
+                # Check door interaction - require E key press when near door
+                if self.door_ready_to_exit and e_pressed:
+                    print("🚪 Player exiting interior through door")
                     self.game_state = 'OUTSIDE'
                     if self.level:
                         self.level.exit_interior()
@@ -411,6 +493,9 @@ class Interior_1(Scene):
                 enemy.update(dt, all_obstacles)
         
         elif self.game_state == 'CAUGHT':
+            # Play caught music
+            play_music("assets/sounds/player_caught.mp3")
+            
             # Countdown kickout timer
             self.kickout_timer -= 1
             if self.kickout_timer <= 0:
@@ -420,6 +505,9 @@ class Interior_1(Scene):
                 self.game_state = 'OUTSIDE'
         
         elif self.game_state == 'GAME_OVER':
+            # Play game over music
+            play_music("assets/sounds/game-over.mp3")
+            
             # Countdown game over timer
             self.game_over_timer -= 1
             if self.game_over_timer <= 0:
@@ -466,9 +554,12 @@ class Interior_1(Scene):
         for enemy in self.enemies:
             pygame.draw.rect(screen, (255, 0, 0), enemy.rect, 2)
         
-        # Draw player collision rect in yellow
+        # Draw player hitboxes
         if self.player:
+            # Main rect (enemy detection) in yellow
             pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
+            # Collision rect (obstacles) in green - smaller, for walls/trees
+            pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
         
         # Draw door rect in blue
         pygame.draw.rect(screen, (0, 0, 255), self.door, 2)
@@ -500,6 +591,10 @@ class Interior_1(Scene):
             
             # Render door
             pygame.draw.rect(screen, (0, 0, 255), self.door)
+            
+            # Render door interaction UI if player is near
+            if self.door_ready_to_exit:
+                self.render_door_ui(screen)
             
             # Z-ordering: Sort all objects by rect.bottom
             render_objects = []

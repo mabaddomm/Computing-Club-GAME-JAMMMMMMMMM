@@ -135,7 +135,7 @@ class Chunk(Scene):
             return False
         
         for door in self.door_rects:
-            if self.player.rect.colliderect(door):
+            if self.player.collision_rect.colliderect(door):
                 return True
         return False
     
@@ -203,7 +203,10 @@ class Chunk(Scene):
             for door in self.door_rects:
                 pygame.draw.rect(screen, (148, 87, 235), door, 3)
             
-            # Debug mode: Render player hitbox
+            # Debug mode: Render player hitboxes
             if self.player:
-                pygame.draw.rect(screen, (0, 255, 0), self.player.rect, 2)
+                # Main rect (enemy detection) in yellow
+                pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
+                # Collision rect (obstacles) in green
+                pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
 

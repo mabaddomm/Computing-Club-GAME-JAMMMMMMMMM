@@ -8,6 +8,7 @@ from scenes import Chunk, Interior, Interior_1, ChristmasInterior
 from game_objects import Player, Wall
 from ui_elements import PresentCounter
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
+from utils import play_music
 
 
 class InteriorState:
@@ -108,6 +109,16 @@ class ChristmasLevel(Level):
         # Debug mode
         self.debug_mode = False
         
+        # Input tracking
+        self.e_pressed = False
+        
+        # Audio
+        try:
+            self.collect_sound = pygame.mixer.Sound("assets/sounds/present_collected.mp3")
+        except:
+            print("⚠️ Could not load present collection sound")
+            self.collect_sound = None
+        
         # UI Elements list
         self.ui_elements = []
         
@@ -121,7 +132,7 @@ class ChristmasLevel(Level):
         self.ui_elements.append(self.present_counter)
         
         # Create player
-        self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, speed=200)
+        self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, speed=150)
         
         # Create initial chunk at (0, 0)
         self.create_chunk(0, 0)
@@ -335,10 +346,10 @@ class ChristmasLevel(Level):
         self.player.y = max(padding, min(self.player.y, SCREEN_HEIGHT - self.player.height - padding))
     
     def _get_interior_level_config(self, level_num):
-        """Get the configuration for a specific interior level (1-4)
+        """Get the configuration for a specific interior level (1-2)
         
         Args:
-            level_num: Interior level number (1-4)
+            level_num: Interior level number (1 or 2)
             
         Returns:
             dict with 'walls', 'enemy_areas', 'tree_areas' lists
@@ -357,32 +368,29 @@ class ChristmasLevel(Level):
                 'enemy_areas': [(270, 400, 200, 200), (810, 300, 440, 300)],
                 'tree_areas': [(30, 380, 150, 310), (30, 30, 500, 170), (810, 30, 440, 300)]
             },
-            2: {  # Level 2 - Central divider
+            2: {  # Level 2 - Multiple areas with central dividers
                 'walls': [
+                    # Border walls
                     Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
                     Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                    Wall(500, 100, 20, 500), Wall(200, 300, 700, 20)
+                    # Interior walls
+                    Wall(655, 150, 20, 400),  # Central vertical divider
+                    Wall(300, 340, 700, 20),  # Middle horizontal
+                    Wall(0, 340, 150, 20),  # Left horizontal extension
+                    Wall(1150, 340, 200, 20)  # Right horizontal extension
                 ],
-                'enemy_areas': [(100, 100, 300, 200), (900, 400, 200, 200)],
-                'tree_areas': [(600, 150, 250, 300)]
-            },
-            3: {  # Level 3 - L-shaped wall
-                'walls': [
-                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
-                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                    Wall(300, 300, 600, 20), Wall(300, 300, 20, 300)
+                'enemy_areas': [
+                    (380, 30, 150, 300),  # Upper left-center
+                    (850, 30, 150, 300),  # Upper right-center
+                    (900, 400, 200, 200),  # Lower right
+                    (200, 400, 200, 200)  # Lower left
                 ],
-                'enemy_areas': [(200, 200, 250, 250)],
-                'tree_areas': [(700, 450, 300, 300)]
-            },
-            4: {  # Level 4 - Vertical divider
-                'walls': [
-                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
-                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                    Wall(600, 150, 20, 450)
-                ],
-                'enemy_areas': [(150, 150, 200, 200), (900, 300, 250, 200)],
-                'tree_areas': [(400, 300, 300, 300)]
+                'tree_areas': [
+                    (30, 30, 130, 300),  # Top left
+                    (1120, 30, 130, 300),  # Top right
+                    (30, 520, 130, 170),  # Bottom left
+                    (1120, 520, 130, 170)  # Bottom right
+                ]
             }
         }
         return configs.get(level_num, configs[1])  # Default to level 1 if invalid
@@ -391,15 +399,15 @@ class ChristmasLevel(Level):
         """Create an Interior_1 instance with level configuration
         
         Args:
-            level_num: Which level to create (1-4). If None, randomly select
+            level_num: Which level to create (1 or 2). If None, randomly select
             saved_state: InteriorState object to restore from, or None for new interior
             
         Returns:
             Interior_1 scene
         """
-        # Determine level number
+        # Determine level number (only 2 levels available)
         if level_num is None:
-            level_num = random.randint(1, 4)
+            level_num = random.randint(1, 2)
         
         # Get level configuration
         config = self._get_interior_level_config(level_num)
@@ -519,11 +527,11 @@ class ChristmasLevel(Level):
         print(f"💾 Saved interior state for chunk {chunk_pos}: Level {level_num}, {len(enemy_positions)} enemies, {len(present_data)} presents")
     
     def restart_game(self):
-        """Request game restart from main Game class"""
+        """Request return to main menu from Game class (on game over)"""
         if self.game:
-            self.game.request_restart()
+            self.game.request_return_to_menu()
         else:
-            print("⚠️ Cannot restart - no game reference")
+            print("⚠️ Cannot return to menu - no game reference")
     
     def handle_event(self, event):
         """Handle pygame events
@@ -531,11 +539,13 @@ class ChristmasLevel(Level):
         Args:
             event: pygame.Event to handle
         """
-        # Toggle debug mode with backslash key
+        # Handle key presses
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_BACKSLASH:
                 self.debug_mode = not self.debug_mode
                 print(f"Debug mode: {'ON' if self.debug_mode else 'OFF'}")
+            elif event.key == pygame.K_e:
+                self.e_pressed = True
             # TEST: Press P to collect a present (for testing)
             elif event.key == pygame.K_p:
                 self.collect_present()
@@ -554,7 +564,13 @@ class ChristmasLevel(Level):
     
     def update(self, dt):
         """Update level logic"""
+        # Store e_pressed for this frame, then reset
+        e_pressed_this_frame = self.e_pressed
+        self.e_pressed = False
+        
+        # Music management based on location
         if not self.is_in_interior:
+            play_music("assets/sounds/outside_music.mp3")
             # Check for chunk switching
             scene = self.get_current_scene()
             if isinstance(scene, Chunk):
@@ -565,20 +581,23 @@ class ChristmasLevel(Level):
                 # Check for door entry
                 if scene.check_door_enter():
                     # Check for input to enter
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_e]:  # Press E to enter
+                    if e_pressed_this_frame:  # Press E to enter
                         self.enter_interior()
-        else:
-            # In interior - check for exit
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_SPACE]:  # Press SPACE to exit
-                self.exit_interior()
         
         # Update UI elements
         for ui_element in self.ui_elements:
             ui_element.update(dt)
         
-        # Update current scene (base class handles fade effect)
+        # Update current scene
+        scene = self.get_current_scene()
+        if scene:
+            # For interiors, pass e_pressed parameter
+            if isinstance(scene, (Interior_1, ChristmasInterior)):
+                scene.update(dt, e_pressed_this_frame)
+            else:
+                scene.update(dt)
+        
+        # Update fade effects (from Level base class)
         super().update(dt)
     
     def render(self, screen):
