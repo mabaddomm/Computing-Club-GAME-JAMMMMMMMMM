@@ -28,8 +28,8 @@ PLAYER_SPAWN_IN_LEVEL = (630, 550)
 DOOR_RECT = (640, 695, 50, 30)  # x, y, w, h
 
 # New sizes requested
-TREE_WIDTH = 140
-TREE_HEIGHT = 180
+TREE_WIDTH = 110
+TREE_HEIGHT = 150
 PRESENT_SIZE = 40
 
 # --- PRESENT SPAWN CONSTANTS (REVISED) ---
@@ -55,7 +55,8 @@ COLORS = {
     'METER_FILL': (0, 200, 0),
     'SIGHT_CONE': (255, 100, 50, 50),  # Translucent Red-Orange
     'RED': (255, 0, 0),
-    'WALL_COLOR': (100, 100, 100),  # New color for walls
+    'WALL_COLOR': (50, 20, 20),  # New color for walls
+    'FLOOR_COLOR': (152, 116, 86),
     'LOS_BLOCKED': (255, 0, 0, 100),  # Debug color for blocked LOS
     'LOS_CLEAR': (0, 255, 0, 100),  # Debug color for clear LOS
     'DEBUG_RANGE': (255, 255, 100, 50),  # Light Yellow Translucent
@@ -873,7 +874,7 @@ class Level:
         solids_for_trees = list(self.walls)
 
         # New constant for the minimum separation distance between tree collision rects
-        TREE_MIN_MARGIN = 30
+        TREE_MIN_MARGIN = 50
 
         attempts_per_tree = 200
         placed = 0
@@ -1058,31 +1059,45 @@ def run_game():
 
     LEVELS = {
         "level1": {
-            "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                      Wall(300, 200, 400, 20), Wall(300, 200, 20, 300), ],
-            "enemy_areas": [(100, 100, 200, 200), (800, 150, 300, 250)],
-            "present_areas": [(400, 400, 200, 300), (900, 500, 250, 300)]},
+            "walls": [Wall(0, 0, 1280, 20),
+                      Wall(0, 0, 20, 720),
+                      Wall(0, 700, 1280, 20),
+                      Wall(1260, 0, 20, 720),
+
+                      Wall(0, 350, 180, 20),
+                      Wall(300, 350, 220, 20),
+                      Wall(520, 350, 20, 100),
+                      Wall(520, 600, 20, 200),
+
+                      Wall(780, 0, 20, 500)
+                      ],
+            "enemy_areas": [(270, 400, 200, 200),
+                            (810, 300, 440, 300)],
+
+            "tree_areas": [(30, 380, 150, 310),
+                           (30, 30, 500, 170),
+                           (810, 30, 440, 300)]},
 
 
         "level2": {
             "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
                       Wall(500, 100, 20, 500), Wall(200, 300, 700, 20)],
             "enemy_areas": [(100, 100, 300, 200), (900, 400, 200, 200)],
-            "present_areas": [(600, 150, 250, 300)]},
+            "tree_areas": [(600, 150, 250, 300)]},
         "level3": {
             "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
                       Wall(300, 300, 600, 20), Wall(300, 300, 20, 300)],
             "enemy_areas": [(200, 200, 250, 250)],
-            "present_areas": [(700, 450, 300, 300)]},
+            "tree_areas": [(700, 450, 300, 300)]},
         "level4": {
             "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
                       Wall(600, 150, 20, 450)],
             "enemy_areas": [(150, 150, 200, 200), (900, 300, 250, 200)],
-            "present_areas": [(400, 300, 300, 300)]}
+            "tree_areas": [(400, 300, 300, 300)]}
     }
 
     def load_random_level():
-# TESTING
+# TESTING level1
         #key = random.choice(list(LEVELS.keys()))
         key = "level1"
         data = LEVELS[key]
@@ -1090,7 +1105,7 @@ def run_game():
         return Level(
             walls=data["walls"],
             enemy_spawn_areas=data["enemy_areas"],
-            tree_spawn_areas=data["present_areas"],
+            tree_spawn_areas=data["tree_areas"],
             num_enemies=3,
             num_presents=8,  # example number; adjust per level by changing LEVELS if desired
             num_trees=3
@@ -1187,13 +1202,13 @@ def run_game():
                 enemy.update(ALL_OBSTACLES, player)
 
         # --- Rendering (REVISED FOR Z-ORDERING) ---
-        screen.fill(COLORS['DARK_GRAY'])
+        screen.fill(COLORS['FLOOR_COLOR'])
 
         if game_state == 'PLAYING':
             # 1. Draw non-sorted objects (Walls, Door)
             for wall in walls_render:
                 wall.render(screen)
-            pygame.draw.rect(screen, (0, 0, 255), level.door)
+            pygame.draw.rect(screen, (255,228,196), level.door)
 
             # 2. Prepare for depth sorting (Z-ordering)
             all_render_objects = (
