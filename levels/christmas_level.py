@@ -2,9 +2,11 @@
 
 import pygame
 import random
+import os
 from game import Level
 from scenes import Chunk, Interior, ChristmasInterior, MockInterior
 from game_objects import Player
+from ui_elements import PresentCounter
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 
 
@@ -93,6 +95,18 @@ class ChristmasLevel(Level):
         # Testing mode - use mock interior for all doors (easier testing)
         self.use_mock_interior = True  # Set to False to use goal chunk only
         
+        # UI Elements list
+        self.ui_elements = []
+        
+        # Create and add present counter UI
+        self.present_counter = PresentCounter(
+            x=SCREEN_WIDTH - 230,
+            y=20,
+            presents_collected=self.presents_collected,
+            present_goal=self.present_goal
+        )
+        self.ui_elements.append(self.present_counter)
+        
         # Create player
         self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, speed=200)
         
@@ -108,6 +122,9 @@ class ChristmasLevel(Level):
         """Collect a present and check if goal chunk should be unlocked"""
         self.presents_collected += 1
         print(f"🎁 Present collected! ({self.presents_collected}/{self.present_goal})")
+        
+        # Update the UI counter
+        self.present_counter.update_count(self.presents_collected, self.present_goal)
         
         # Check if we've reached the goal and should unlock the goal chunk
         if self.presents_collected >= self.present_goal and not self.chunk_unlocked[8]:
@@ -389,6 +406,15 @@ class ChristmasLevel(Level):
             # TEST: Press P to collect a present (for testing)
             elif event.key == pygame.K_p:
                 self.collect_present()
+            # TEST: Press [ to trigger fade to black
+            elif event.key == pygame.K_LEFTBRACKET:
+                self.fade_to_black()
+            # TEST: Press ] to trigger fade in from black
+            elif event.key == pygame.K_RIGHTBRACKET:
+                self.fade_in_from_black()
+            # TEST: Press \ and R together to reset fade
+            elif event.key == pygame.K_r and pygame.key.get_pressed()[pygame.K_BACKSLASH]:
+                self.reset_fade()
         
         # Pass events to parent
         super().handle_event(event)
@@ -415,7 +441,11 @@ class ChristmasLevel(Level):
             if keys[pygame.K_SPACE]:  # Press SPACE to exit
                 self.exit_interior()
         
-        # Update current scene
+        # Update UI elements
+        for ui_element in self.ui_elements:
+            ui_element.update(dt)
+        
+        # Update current scene (base class handles fade effect)
         super().update(dt)
     
     def render(self, screen):
@@ -469,6 +499,10 @@ class ChristmasLevel(Level):
             debug_text = font.render("DEBUG MODE (Press \\ to toggle)", True, (255, 255, 0))
             screen.blit(debug_text, (SCREEN_WIDTH - 500, 10))
         
+        # === Render UI Elements (Always Visible) ===
+        for ui_element in self.ui_elements:
+            ui_element.render(screen)
+        
         # Show door hint (always visible, not just in debug)
         if not self.is_in_interior:
             scene = self.get_current_scene()
@@ -476,4 +510,7 @@ class ChristmasLevel(Level):
                 font = pygame.font.Font(None, 36)
                 hint_text = font.render("Press E to enter", True, (255, 255, 0))
                 screen.blit(hint_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT - 50))
+        
+        # Render fade overlay on top of everything (from base Level class)
+        self._render_fade_overlay(screen)
 

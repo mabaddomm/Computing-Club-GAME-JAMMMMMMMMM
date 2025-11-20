@@ -33,6 +33,11 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
             
+            # ESC key to quit game
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+            
             # Pass events to current level/scene
             if self.current_level:
                 self.current_level.handle_event(event)

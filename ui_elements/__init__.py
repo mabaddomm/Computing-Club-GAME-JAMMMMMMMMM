@@ -1,10 +1,7 @@
 """UI elements package - contains all user interface components"""
 
 # Import all UI elements here for easy access
-# Example:
-# from ui_elements.button import Button
-# from ui_elements.text import Text
-# from ui_elements.hud import HUD
+from ui_elements.present_counter import PresentCounter
 
-__all__ = []
+__all__ = ['PresentCounter']
 
