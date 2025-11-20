@@ -4,8 +4,8 @@
 # Recommended: Use inheritance classes
 from scenes.chunk import Chunk
 from scenes.interior import Interior
+from scenes.interior_1 import Interior_1
 from scenes.christmas_interior import ChristmasInterior
-from scenes.mock_interior import MockInterior
 
-__all__ = ['Chunk', 'Interior', 'ChristmasInterior', 'MockInterior']
+__all__ = ['Chunk', 'Interior', 'Interior_1', 'ChristmasInterior']
 

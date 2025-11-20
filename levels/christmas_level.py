@@ -4,8 +4,8 @@ import pygame
 import random
 import os
 from game import Level
-from scenes import Chunk, Interior, ChristmasInterior, MockInterior
-from game_objects import Player
+from scenes import Chunk, Interior, Interior_1, ChristmasInterior
+from game_objects import Player, Wall
 from ui_elements import PresentCounter
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 
@@ -92,15 +92,12 @@ class ChristmasLevel(Level):
         # Debug mode
         self.debug_mode = False
         
-        # Testing mode - use mock interior for all doors (easier testing)
-        self.use_mock_interior = True  # Set to False to use goal chunk only
-        
         # UI Elements list
         self.ui_elements = []
         
         # Create and add present counter UI
         self.present_counter = PresentCounter(
-            x=SCREEN_WIDTH - 230,
+            x=SCREEN_WIDTH - 120,  # 100px width + 20px margin
             y=20,
             presents_collected=self.presents_collected,
             present_goal=self.present_goal
@@ -287,7 +284,7 @@ class ChristmasLevel(Level):
                 print(f"Generated chunk at ({chunk_x}, {chunk_y}) with map {map_id} (only unlocked option)")
         
         # Create chunk with coordinates and map_id
-        chunk = Chunk(chunk_x, chunk_y, map_id, self.maps)
+        chunk = Chunk(chunk_x, chunk_y, map_id, self.maps, level=self)
         chunk.set_player(self.player)
         
         # Clear existing scenes and add new chunk
@@ -321,6 +318,47 @@ class ChristmasLevel(Level):
         self.player.x = max(padding, min(self.player.x, SCREEN_WIDTH - self.player.width - padding))
         self.player.y = max(padding, min(self.player.y, SCREEN_HEIGHT - self.player.height - padding))
     
+    def _create_interior_1(self):
+        """Create an Interior_1 instance with level configuration
+        
+        Returns:
+            Interior_1 scene
+        """
+        # Define wall layout (border walls + some interior walls)
+        walls = [
+            Wall(0, 0, SCREEN_WIDTH, 20),  # Top
+            Wall(0, 0, 20, SCREEN_HEIGHT),  # Left
+            Wall(0, SCREEN_HEIGHT - 20, SCREEN_WIDTH, 20),  # Bottom
+            Wall(SCREEN_WIDTH - 20, 0, 20, SCREEN_HEIGHT),  # Right
+            Wall(300, 200, 400, 20),  # Interior wall 1
+            Wall(300, 200, 20, 300),  # Interior wall 2
+        ]
+        
+        # Define spawn areas (x, y, width, height)
+        enemy_spawn_areas = [
+            (100, 100, 200, 200),  # Top left area
+            (800, 150, 300, 250),  # Top right area
+        ]
+        
+        tree_spawn_areas = [
+            (400, 400, 200, 300),  # Bottom middle-left
+            (900, 500, 250, 300),  # Bottom right
+        ]
+        
+        # Create Interior_1 with configuration
+        interior = Interior_1(
+            walls=walls,
+            enemy_spawn_areas=enemy_spawn_areas,
+            tree_spawn_areas=tree_spawn_areas,
+            num_enemies=3,
+            num_presents=8,  # Target (actual number depends on tree placement)
+            num_trees=3,
+            level=self,
+            name="Interior 1"
+        )
+        
+        return interior
+    
     def enter_interior(self):
         """Enter an interior area"""
         if self.is_in_interior:
@@ -336,17 +374,7 @@ class ChristmasLevel(Level):
         is_goal_chunk = (current_map_id == 8)
         
         # Create interior
-        if self.use_mock_interior:
-            # TESTING MODE: Use mock interior for all doors
-            interior = MockInterior(level=self)
-            print("🧪 MOCK INTERIOR - Testing stealth mechanics")
-            
-            # Position player near middle bottom of screen
-            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
-            self.player.y = SCREEN_HEIGHT - self.player.height - 50
-            
-            interior.set_player(self.player)
-        elif is_goal_chunk:
+        if is_goal_chunk:
             # Special Christmas stealth interior with enemies and presents!
             interior = ChristmasInterior("Goal Interior - Christmas Challenge", level=self)
             print("🎄 You've entered the GOAL CHUNK - Stealth Challenge!")
@@ -358,12 +386,9 @@ class ChristmasLevel(Level):
             
             interior.set_player(self.player)
         else:
-            # Regular interior (simple dark grey background)
-            interior = Interior("Interior")
-            
-            # Position player near middle bottom of screen
-            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
-            self.player.y = SCREEN_HEIGHT - self.player.height - 50
+            # Regular interior using Interior_1 with procedural spawning
+            interior = self._create_interior_1()
+            print("🏠 Entering Interior_1 - Advanced stealth challenge")
             
             interior.set_player(self.player)
         
@@ -388,9 +413,15 @@ class ChristmasLevel(Level):
         self.current_chunk_pos = self.door_entry_chunk_pos
         self.create_chunk(self.door_entry_chunk_pos[0], self.door_entry_chunk_pos[1])
         
-        # Position player near door
-        self.player.x = self.door_entry_x
-        self.player.y = self.door_entry_y + 45  # Offset from door
+        # Reset player position and state (clears caught status, velocities, etc.)
+        self.player.reset_for_new_round(self.door_entry_x, self.door_entry_y + 45)
+    
+    def restart_game(self):
+        """Request game restart from main Game class"""
+        if self.game:
+            self.game.request_restart()
+        else:
+            print("⚠️ Cannot restart - no game reference")
     
     def handle_event(self, event):
         """Handle pygame events

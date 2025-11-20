@@ -26,12 +26,15 @@ class PresentCounter(UIElement):
         self.icon_size = 82  # Large icon size
         self.font = pygame.font.Font(None, 48)
         self.text_color = (0, 0, 0)  # Black
-        self.text_offset_x = 0  # Offset from icon to text (increased to prevent overlap with large icon)
-        self.text_offset_y = 60  # Vertical alignment adjustment (centers text with icon)
         
         # Container/background settings
-        self.container_width = 200
-        self.container_height = 120
+        self.container_width = 100
+        self.container_height = 100
+        
+        # Calculate centered positions within container
+        self.icon_offset_x = (self.container_width - self.icon_size) // 2  # Center icon horizontally
+        self.icon_offset_y = -15  # Minimal top padding, moved up
+        self.text_offset_y = self.icon_offset_y + self.icon_size + 5 # Text below icon with minimal gap
         
         # Load present icon and background
         self._load_background()
@@ -44,9 +47,9 @@ class PresentCounter(UIElement):
             assets_dir = os.path.join(os.path.dirname(__file__), '..', 'assets', 'images')
             bg_path = os.path.join(assets_dir, 'candy_cane_pattern_ui.png')
             
-            # Load the background (already sized to 200x120, no scaling needed)
+            # Load the background (already sized to 100x100, no scaling needed)
             self.background = pygame.image.load(bg_path).convert_alpha()
-            print("✅ Candy cane pattern background loaded successfully (pre-cropped)")
+            print("✅ Candy cane pattern background loaded successfully (100x100)")
         except Exception as e:
             print(f"⚠️ Failed to load candy cane pattern: {e}")
             # Create a fallback background (light colored rectangle)
@@ -96,20 +99,21 @@ class PresentCounter(UIElement):
         if not self.visible:
             return
         
-        # Draw the candy cane pattern background (behind everything)
-        bg_x = self.x - 10  # Slight offset for padding
-        bg_y = self.y - 10
-        screen.blit(self.background, (bg_x, bg_y))
+        # Draw the candy cane pattern background first
+        screen.blit(self.background, (self.x, self.y))
         
-        # Draw the present icon (on top of background)
-        screen.blit(self.icon, (self.x, self.y))
+        # Draw the present icon centered horizontally in the container
+        icon_x = self.x + self.icon_offset_x
+        icon_y = self.y + self.icon_offset_y
+        screen.blit(self.icon, (icon_x, icon_y))
         
-        # Draw the count text (X / Goal format, on top of background)
+        # Draw the count text centered horizontally below the icon
         count_text = f"{self.presents_collected} / {self.present_goal}"
         text_surface = self.font.render(count_text, True, self.text_color)
         
-        # Position text to the right of the icon
-        text_x = self.x + self.text_offset_x
+        # Center text horizontally within the container
+        text_width = text_surface.get_width()
+        text_x = self.x + (self.container_width - text_width) // 2
         text_y = self.y + self.text_offset_y
         screen.blit(text_surface, (text_x, text_y))
 

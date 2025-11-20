@@ -12,6 +12,7 @@ class Level:
         self.name = name
         self.scenes: List[Scene] = []
         self.current_scene_index = 0
+        self.game = None  # Reference to parent Game instance (set by Game.set_level)
         
         # Fade to black effect state
         self.is_fading = False

@@ -10,12 +10,13 @@ from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 class Chunk(Scene):
     """A chunk represents a map area at grid coordinates with a specific map"""
     
-    def __init__(self, chunk_x, chunk_y, map_id, maps_dict):
+    def __init__(self, chunk_x, chunk_y, map_id, maps_dict, level=None):
         super().__init__(f"Chunk ({chunk_x}, {chunk_y})")
         self.chunk_x = chunk_x
         self.chunk_y = chunk_y
         self.map_id = map_id
         self.maps_dict = maps_dict
+        self.level = level  # Reference to parent level for debug mode
         
         # Map surfaces
         self.map_bottom = None
@@ -154,6 +155,11 @@ class Chunk(Scene):
         if self.player:
             keys = pygame.key.get_pressed()
             self.player.handle_input(keys)
+            
+            # Boost player velocity in debug mode (after input is processed)
+            if self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode:
+                self.player.velocity_x *= 3  # 3x speed in debug mode
+                self.player.velocity_y *= 3
         
         # Update all game objects (this will apply velocities)
         super().update(dt)

@@ -1,22 +1,44 @@
 """Present collectible game object with interaction mechanics"""
 
 import pygame
+import random
+import os
 from game import GameObject
+
+
+# Present image paths
+PRESENT_IMAGE_PATHS = ['prez1.png', 'prez2.png']
+PRESENT_SIZE = 40  # Size to scale present images to
 
 
 class Present(GameObject):
     """Collectible present that requires holding E to collect"""
     
+    # Class variable for caching loaded present images
+    PRESENT_IMAGES = None
+    
     def __init__(self, x, y):
         super().__init__(x, y)
-        self.width = 35
-        self.height = 35
+        self.width = PRESENT_SIZE
+        self.height = PRESENT_SIZE
+        
+        # Load present images if not cached
+        if Present.PRESENT_IMAGES is None:
+            Present.PRESENT_IMAGES = self._load_present_images()
+        
+        # Randomly select a present image
+        if Present.PRESENT_IMAGES:
+            self.image = random.choice(Present.PRESENT_IMAGES)
+        else:
+            # Fallback image
+            self.image = pygame.Surface((PRESENT_SIZE, PRESENT_SIZE), pygame.SRCALPHA)
+            self.image.fill((100, 150, 255))
         
         # Collision rect
         self.rect = pygame.Rect(int(x), int(y), self.width, self.height)
         
-        # Interaction zone
-        self.interaction_range = 50
+        # Interaction zone (smaller for tighter gameplay)
+        self.interaction_range = 45
         interact_size = self.interaction_range * 2
         self.interaction_rect = pygame.Rect(0, 0, interact_size, interact_size)
         self.interaction_rect.center = self.rect.center
@@ -30,14 +52,42 @@ class Present(GameObject):
         # UI
         self.font_medium = pygame.font.Font(None, 24)
         
-        # Colors
+        # Colors (updated interaction opacity to 20)
         self.present_color = (100, 150, 255)
-        self.interaction_color = (100, 150, 255, 60)
+        self.interaction_color = (100, 150, 255, 20)  # More transparent
         self.meter_bg_color = (30, 30, 30)
         self.meter_fill_color = (0, 200, 0)
         self.prompt_color = (255, 255, 0)
         self.bg_color = (0, 0, 0)
         self.white = (255, 255, 255)
+    
+    def _load_present_images(self):
+        """Load present images from assets/images/christmas/presents/"""
+        images = []
+        assets_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'assets', 'images', 'christmas', 'presents'
+        )
+        
+        for path in PRESENT_IMAGE_PATHS:
+            try:
+                full_path = os.path.join(assets_dir, path)
+                raw_image = pygame.image.load(full_path).convert_alpha()
+                scaled_image = pygame.transform.scale(raw_image, (PRESENT_SIZE, PRESENT_SIZE))
+                images.append(scaled_image)
+                print(f"✅ Loaded present image: {path}")
+            except Exception as e:
+                print(f"⚠️ Failed to load {path}: {e}")
+                # Create fallback
+                fallback = pygame.Surface((PRESENT_SIZE, PRESENT_SIZE), pygame.SRCALPHA)
+                fallback.fill((100, 150, 255))
+                pygame.draw.line(fallback, (255, 255, 255), (PRESENT_SIZE // 2, 0),
+                                (PRESENT_SIZE // 2, PRESENT_SIZE), 3)
+                pygame.draw.line(fallback, (255, 255, 255), (0, PRESENT_SIZE // 2),
+                                (PRESENT_SIZE, PRESENT_SIZE // 2), 3)
+                images.append(fallback)
+        
+        return images if images else None
     
     def check_interaction_proximity(self, player):
         """Check if player is within interaction range"""
@@ -94,16 +144,8 @@ class Present(GameObject):
                           (self.interaction_range, self.interaction_range), self.interaction_range)
         screen.blit(interaction_surface, self.interaction_rect.topleft)
         
-        # Draw present body (simple blue box with white ribbon)
-        pygame.draw.rect(screen, self.present_color, self.rect)
-        # Vertical ribbon
-        pygame.draw.line(screen, self.white, 
-                        (self.rect.centerx, self.rect.top), 
-                        (self.rect.centerx, self.rect.bottom), 3)
-        # Horizontal ribbon
-        pygame.draw.line(screen, self.white, 
-                        (self.rect.left, self.rect.centery), 
-                        (self.rect.right, self.rect.centery), 3)
+        # Draw present image
+        screen.blit(self.image, self.rect.topleft)
         
         # Draw UI based on state
         if self.check_interaction_proximity(player):

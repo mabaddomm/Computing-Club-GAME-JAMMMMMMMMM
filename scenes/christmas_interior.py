@@ -22,6 +22,9 @@ class ChristmasInterior(Scene):
         self.is_kickout_active = False
         self.kickout_timer = 0
         self.kickout_duration = 120  # 2 seconds at 60 FPS
+        self.game_over_timer = 0
+        self.game_over_duration = 180  # 3 seconds at 60 FPS
+        self.game_over_active = False
         
         # Player spawn position (will be set when player is added)
         self.player_start_x = 640
@@ -127,6 +130,15 @@ class ChristmasInterior(Scene):
     
     def update(self, dt):
         """Update interior logic including stealth mechanics"""
+        # Handle game over state
+        if self.game_over_active:
+            self.game_over_timer -= 1
+            if self.game_over_timer <= 0:
+                print("🔄 Restarting game...")
+                if self.level:
+                    self.level.restart_game()
+            return  # Don't update game during game over
+        
         # Handle kickout state
         if self.is_kickout_active:
             self.kickout_timer -= 1
@@ -141,6 +153,11 @@ class ChristmasInterior(Scene):
         if self.player:
             keys = pygame.key.get_pressed()
             self.player.handle_input(keys)
+            
+            # Boost player velocity in debug mode (after input is processed)
+            if self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode:
+                self.player.velocity_x *= 3  # 3x speed in debug mode
+                self.player.velocity_y *= 3
         
         # Get all solid obstacles (walls + presents that haven't been collected)
         solid_obstacles = self.walls + [p for p in self.presents if not p.is_collected]
@@ -205,8 +222,9 @@ class ChristmasInterior(Scene):
         """Trigger the kickout state (caught by enemy)"""
         if self.player and self.player.lives <= 0:
             # Game over - player has no lives left
-            print("GAME OVER - No lives remaining")
-            # TODO: Implement game over screen
+            print("💀 GAME OVER! Out of lives!")
+            self.game_over_active = True
+            self.game_over_timer = self.game_over_duration
         else:
             # Kickout state
             self.is_kickout_active = True
@@ -235,6 +253,20 @@ class ChristmasInterior(Scene):
             screen: Pygame screen surface
             debug: If True, render debug info
         """
+        # Handle game over rendering
+        if self.game_over_active:
+            # Black screen during game over
+            screen.fill((0, 0, 0))
+            font_large = pygame.font.Font(None, 72)
+            font_small = pygame.font.Font(None, 48)
+            
+            msg1 = font_large.render("GAME OVER", True, (255, 0, 0))
+            msg2 = font_small.render("You ran out of lives", True, (255, 255, 255))
+            
+            screen.blit(msg1, (640 - msg1.get_width() // 2, 300))
+            screen.blit(msg2, (640 - msg2.get_width() // 2, 380))
+            return
+        
         # Handle kickout rendering
         if self.is_kickout_active:
             # Black screen during kickout

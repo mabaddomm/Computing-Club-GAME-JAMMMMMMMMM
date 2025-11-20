@@ -33,10 +33,20 @@ class Enemy(GameObject):
         self.frame_timer = 0
         self.frame_interval = 10
         
-        # Collision rect (smaller, for lower body)
-        self.collision_height = int(self.ENEMY_HEIGHT * 0.5)
-        self.rect = pygame.Rect(int(self.x), int(self.y) + (self.ENEMY_HEIGHT - self.collision_height),
-                                self.width, self.collision_height)
+        # Collision rect - much smaller, positioned at feet (70% width x 20% height)
+        collision_width = int(self.ENEMY_WIDTH * 0.7)  # ~45px
+        self.collision_height = int(self.ENEMY_HEIGHT * 0.2)  # ~26px
+        
+        # Position collision rect at feet, recentered
+        self.x_offset = int(self.ENEMY_WIDTH * 0.25)  # Recenter horizontally
+        self.y_offset = int(self.ENEMY_HEIGHT * 0.65)  # Position at feet
+        
+        self.rect = pygame.Rect(
+            int(self.x) + self.x_offset,
+            int(self.y) + self.y_offset,
+            collision_width,
+            self.collision_height
+        )
         
         # Sight cone properties
         self.sight_range = 150
@@ -192,9 +202,9 @@ class Enemy(GameObject):
         # Update position
         super().update(dt)
         
-        # Update collision rect
-        self.rect.x = int(self.x)
-        self.rect.y = int(self.y) + (self.ENEMY_HEIGHT - self.collision_height)
+        # Update collision rect (using offsets to position at feet)
+        self.rect.x = int(self.x) + self.x_offset
+        self.rect.y = int(self.y) + self.y_offset
         
         # Check collisions
         for obstacle in obstacles:

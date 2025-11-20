@@ -18,6 +18,8 @@ class Game:
         self.fps = 60
         self.width = width
         self.height = height
+        self.restart_requested = False
+        self.initial_level_class = None  # Store level class for restart
     
     def set_level(self, level: Level):
         """Set the current level
@@ -26,6 +28,24 @@ class Game:
             level: Level instance to set as current
         """
         self.current_level = level
+        # Set game reference on level
+        level.game = self
+        # Store the level class for restart functionality
+        self.initial_level_class = level.__class__
+    
+    def request_restart(self):
+        """Request a game restart (called by level when game over)"""
+        self.restart_requested = True
+        print("🔄 Game restart requested...")
+    
+    def restart_game(self):
+        """Restart the game by creating a fresh level instance"""
+        if self.initial_level_class:
+            print("🎮 Restarting game from scratch...")
+            # Create a completely new level instance
+            self.current_level = self.initial_level_class()
+            self.restart_requested = False
+            print("✅ Game restarted successfully!")
     
     def handle_events(self):
         """Handle pygame events"""
@@ -48,6 +68,11 @@ class Game:
         Args:
             dt: Delta time in seconds since last update
         """
+        # Check if restart was requested
+        if self.restart_requested:
+            self.restart_game()
+            return
+        
         if self.current_level:
             self.current_level.update(dt)
     

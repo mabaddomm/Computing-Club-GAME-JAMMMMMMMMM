@@ -240,6 +240,26 @@ class Player(GameObject):
             return True
         return False
     
+    def reset_for_new_round(self, x, y):
+        """Reset player position and state after being caught/kicked out
+        
+        Args:
+            x: New X position
+            y: New Y position
+        """
+        self.x = x
+        self.y = y
+        self.is_caught = False
+        self.velocity_x = 0
+        self.velocity_y = 0
+        
+        # Recalculate rect position based on collision height
+        # The y position needs adjustment for the large sprite vs small collision box
+        self.rect.x = int(self.x)
+        self.rect.y = int(self.y) + (self.PLAYER_HEIGHT - self.collision_height)
+        
+        print(f"🔄 Player reset to position ({x}, {y})")
+    
     def got_caught(self):
         """Get caught by enemy sight - triggers kickout"""
         if self.is_vulnerable and self.lives > 0:
