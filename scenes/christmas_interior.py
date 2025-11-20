@@ -296,7 +296,7 @@ class ChristmasInterior(Scene):
         
         # Render player
         if self.player and self.player.visible:
-            self.player.render(screen)
+            self.player.render(screen, debug=debug)
             
             # Show lives
             if debug:
@@ -304,15 +304,10 @@ class ChristmasInterior(Scene):
                 lives_text = font.render(f"Lives: {self.player.lives}", True, (255, 255, 0))
                 screen.blit(lives_text, (10, 10))
         
-        # Debug: draw collision boxes
+        # Debug: draw enemy collision boxes (player hitboxes are drawn in player.render())
         if debug:
             for enemy in self.enemies:
                 pygame.draw.rect(screen, (255, 0, 0), enemy.rect, 1)
-            if self.player:
-                # Main rect (enemy detection) in yellow
-                pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
-                # Collision rect (obstacles) in green
-                pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
         
         # Render UI elements
         for ui in self.ui_elements:

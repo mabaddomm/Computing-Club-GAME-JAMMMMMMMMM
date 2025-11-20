@@ -554,12 +554,7 @@ class Interior_1(Scene):
         for enemy in self.enemies:
             pygame.draw.rect(screen, (255, 0, 0), enemy.rect, 2)
         
-        # Draw player hitboxes
-        if self.player:
-            # Main rect (enemy detection) in yellow
-            pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
-            # Collision rect (obstacles) in green - smaller, for walls/trees
-            pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
+        # Draw player hitboxes (now done in player.render())
         
         # Draw door rect in blue
         pygame.draw.rect(screen, (0, 0, 255), self.door, 2)
@@ -608,6 +603,7 @@ class Interior_1(Scene):
             
             # Render sorted objects
             walls_for_los = self.walls + self.trees
+            debug_mode = self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode
             for obj in render_objects:
                 if isinstance(obj, Child):
                     obj.render(screen, walls_for_los)
@@ -616,7 +612,11 @@ class Interior_1(Scene):
                 elif isinstance(obj, Tree):
                     obj.render(screen)
                 else:
-                    obj.render(screen)
+                    # Pass debug for player and other objects
+                    try:
+                        obj.render(screen, debug=debug_mode)
+                    except TypeError:
+                        obj.render(screen)
             
             # Debug: Draw hitboxes and spawn ranges AFTER game objects (so they're on top)
             if self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode:

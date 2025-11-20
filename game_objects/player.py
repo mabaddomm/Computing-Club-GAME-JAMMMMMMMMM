@@ -327,8 +327,13 @@ class Player(GameObject):
         self.rect.x = int(self.x)
         self.rect.y = int(self.y) + (self.PLAYER_HEIGHT - self.collision_height)
     
-    def render(self, screen):
-        """Render the player sprite"""
+    def render(self, screen, debug=False):
+        """Render the player sprite
+        
+        Args:
+            screen: pygame screen surface
+            debug: If True, show hitboxes
+        """
         if self.visible:
             # Flashing effect when invulnerable
             if not self.is_vulnerable and self.invuln_timer % 10 < 5:
@@ -340,4 +345,11 @@ class Player(GameObject):
                 frame_rect = current_frame.get_rect()
                 frame_rect.midbottom = self.rect.midbottom
                 screen.blit(current_frame, frame_rect.topleft)
+            
+            # Debug: Show hitboxes
+            if debug:
+                # Main rect (yellow) - for enemy detection
+                pygame.draw.rect(screen, (255, 255, 0), self.rect, 2)
+                # Collision rect (green) - for physical collisions
+                pygame.draw.rect(screen, (0, 255, 0), self.collision_rect, 2)
 

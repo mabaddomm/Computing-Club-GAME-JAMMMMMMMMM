@@ -4,9 +4,9 @@ import pygame
 import random
 import os
 from game import Level
-from scenes import Chunk, Interior, Interior_1, ChristmasInterior
+from scenes import Chunk, Interior, Interior_1
 from game_objects import Player, Wall
-from ui_elements import PresentCounter
+from ui_elements import PresentCounter, LivesTracker
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 from utils import play_music
 
@@ -50,12 +50,12 @@ class ChristmasLevel(Level):
             5: {'top': False, 'bottom': True, 'left': False, 'right': True},   # Bottom-right corner
             6: {'top': False, 'bottom': True, 'left': True, 'right': False},   # Bottom-left corner
             7: {'top': False, 'bottom': False, 'left': False, 'right': False}, # Dead end/clearing
-            8: {'top': False, 'bottom': True, 'left': False, 'right': False}   # Goal chunk (one entrance from bottom)
+            8: {'top': True, 'bottom': True, 'left': True, 'right': True}      # Goal chunk (crossroads - all directions)
         }
         
         # Chunk unlock status
         # Chunks 0-7 are unlocked by default (basic winter maps)
-        # Chunk 8 is the goal chunk (unlocks after collecting presents)
+        # Chunk 8 is the ending scene (unlocks after collecting presents)
         self.chunk_unlocked = {
             0: True,
             1: True,
@@ -65,7 +65,7 @@ class ChristmasLevel(Level):
             5: True,
             6: True,
             7: True,
-            8: False  # Goal chunk (unlocks after collecting L1_PRESENT_ITEM_GOAL presents)
+            8: False,  # Ending scene - The Grinch returns presents! (unlocks after collecting L1_PRESENT_ITEM_GOAL presents)
         }
         
         # Special/Unlockable chunks configuration
@@ -134,6 +134,16 @@ class ChristmasLevel(Level):
         # Create player
         self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, speed=150)
         
+        # Create and add lives tracker UI
+        self.lives_tracker = LivesTracker(
+            x=20,  # Left side of screen
+            y=20,  # Top of screen
+            max_lives=3,
+            icon_size=50,  # Small heart icons
+            spacing=10
+        )
+        self.ui_elements.append(self.lives_tracker)
+        
         # Create initial chunk at (0, 0)
         self.create_chunk(0, 0)
         
@@ -150,10 +160,11 @@ class ChristmasLevel(Level):
         # Update the UI counter
         self.present_counter.update_count(self.presents_collected, self.present_goal)
         
-        # Check if we've reached the goal and should unlock the goal chunk
+        # Check if we've reached the goal and should unlock the ending scene
         if self.presents_collected >= self.present_goal and not self.chunk_unlocked[8]:
             self.unlock_chunk(8)
-            print(f"🎄 You've collected enough presents! The goal chunk is now unlocked!")
+            print(f"🎄✨ You've collected enough presents! The ENDING SCENE is now unlocked!")
+            print(f"🎵 Listen... the children are singing!")
     
     def unlock_chunk(self, chunk_id):
         """Unlock a chunk, making it available for generation
@@ -262,7 +273,7 @@ class ChristmasLevel(Level):
         else:
             # Generate new chunk based on neighboring chunks
             # Check all four neighbors to find valid maps
-            # Start with all unlocked maps only (including goal chunk if unlocked)
+            # Start with all unlocked maps only (including ending scene if unlocked)
             valid_maps = set([map_id for map_id in range(9) if self.chunk_unlocked.get(map_id, False)])
             
             # Check top neighbor (y-1)
@@ -310,14 +321,25 @@ class ChristmasLevel(Level):
             else:
                 print(f"Generated chunk at ({chunk_x}, {chunk_y}) with map {map_id} (only unlocked option)")
         
-        # Create chunk with coordinates and map_id
-        chunk = Chunk(chunk_x, chunk_y, map_id, self.maps, level=self)
-        chunk.set_player(self.player)
-        
-        # Clear existing scenes and add new chunk
-        self.scenes.clear()
-        self.add_scene(chunk)
-        self.current_scene_index = 0
+        # Special handling for chunk 8 (ending scene)
+        if map_id == 8:
+            from scenes import EndingScene
+            ending_scene = EndingScene(self.player, name="The Grinch Returns")
+            
+            # Clear existing scenes and add ending scene
+            self.scenes.clear()
+            self.add_scene(ending_scene)
+            self.current_scene_index = 0
+            print("🎄🎁 ENDING SCENE ACTIVATED! The Grinch returns the presents to the children!")
+        else:
+            # Create regular chunk with coordinates and map_id
+            chunk = Chunk(chunk_x, chunk_y, map_id, self.maps, level=self)
+            chunk.set_player(self.player)
+            
+            # Clear existing scenes and add new chunk
+            self.scenes.clear()
+            self.add_scene(chunk)
+            self.current_scene_index = 0
     
     def switch_chunk(self, new_x, new_y, entry_direction):
         """Switch to a different chunk at the given coordinates
@@ -438,37 +460,20 @@ class ChristmasLevel(Level):
         self.door_entry_y = self.player.y
         self.door_entry_chunk_pos = self.current_chunk_pos
         
-        # Check if this is the goal chunk
-        current_map_id = self.generated_chunks.get(self.current_chunk_pos, 0)
-        is_goal_chunk = (current_map_id == 8)
+        # Create interior using Interior_1 with procedural spawning
+        # Check if this chunk already has a saved interior
+        saved_state = self.saved_interiors.get(self.current_chunk_pos)
         
-        # Create interior
-        if is_goal_chunk:
-            # Special Christmas stealth interior with enemies and presents!
-            interior = ChristmasInterior("Goal Interior - Christmas Challenge", level=self)
-            print("🎄 You've entered the GOAL CHUNK - Stealth Challenge!")
-            print("   Collect presents while avoiding enemies!")
-            
-            # Position player near middle bottom of screen
-            self.player.x = SCREEN_WIDTH // 2 - self.player.width // 2
-            self.player.y = SCREEN_HEIGHT - self.player.height - 50
-            
-            interior.set_player(self.player)
+        if saved_state:
+            # Restore previous interior
+            interior = self._create_interior_1(level_num=saved_state.level_num, saved_state=saved_state)
+            print(f"🏠 Restoring Interior Level {saved_state.level_num}")
         else:
-            # Regular interior using Interior_1 with procedural spawning
-            # Check if this chunk already has a saved interior
-            saved_state = self.saved_interiors.get(self.current_chunk_pos)
-            
-            if saved_state:
-                # Restore previous interior
-                interior = self._create_interior_1(level_num=saved_state.level_num, saved_state=saved_state)
-                print(f"🏠 Restoring Interior Level {saved_state.level_num}")
-            else:
-                # Create new random interior
-                interior = self._create_interior_1()
-                print("🏠 Entering new Interior - Advanced stealth challenge")
-            
-            interior.set_player(self.player)
+            # Create new random interior
+            interior = self._create_interior_1()
+            print("🏠 Entering new Interior - Stealth challenge!")
+        
+        interior.set_player(self.player)
         
         self.current_interior = interior
         self.is_in_interior = True
@@ -546,9 +551,11 @@ class ChristmasLevel(Level):
                 print(f"Debug mode: {'ON' if self.debug_mode else 'OFF'}")
             elif event.key == pygame.K_e:
                 self.e_pressed = True
-            # TEST: Press P to collect a present (for testing)
+            # TEST: Press P to collect 10 presents (for testing)
             elif event.key == pygame.K_p:
-                self.collect_present()
+                for _ in range(10):
+                    self.collect_present()
+                print(f"🎁 Added 10 presents! Total: {self.presents_collected}/{self.present_goal}")
             # TEST: Press [ to trigger fade to black
             elif event.key == pygame.K_LEFTBRACKET:
                 self.fade_to_black()
@@ -568,9 +575,17 @@ class ChristmasLevel(Level):
         e_pressed_this_frame = self.e_pressed
         self.e_pressed = False
         
+        # Update lives tracker to match player's current lives
+        if self.player and self.lives_tracker:
+            self.lives_tracker.set_lives(self.player.lives)
+        
         # Music management based on location
         if not self.is_in_interior:
-            play_music("assets/sounds/outside_music.mp3")
+            # Play special music when goal is reached
+            if self.presents_collected >= self.present_goal:
+                play_music("assets/sounds/children_singing.mp3")
+            else:
+                play_music("assets/sounds/outside_music.mp3")
             # Check for chunk switching
             scene = self.get_current_scene()
             if isinstance(scene, Chunk):
@@ -592,7 +607,7 @@ class ChristmasLevel(Level):
         scene = self.get_current_scene()
         if scene:
             # For interiors, pass e_pressed parameter
-            if isinstance(scene, (Interior_1, ChristmasInterior)):
+            if isinstance(scene, Interior_1):
                 scene.update(dt, e_pressed_this_frame)
             else:
                 scene.update(dt)

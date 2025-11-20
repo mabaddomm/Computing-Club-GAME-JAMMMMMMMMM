@@ -183,7 +183,13 @@ class Chunk(Scene):
         # Render game objects (player, etc.)
         for obj in self.game_objects:
             if obj.visible:
-                obj.render(screen)
+                # Pass debug parameter if render method supports it
+                if hasattr(obj, 'render'):
+                    try:
+                        obj.render(screen, debug=debug)
+                    except TypeError:
+                        # Fallback for objects that don't support debug parameter
+                        obj.render(screen)
         
         # Render map top layer (overlay)
         if self.map_top:
@@ -203,10 +209,5 @@ class Chunk(Scene):
             for door in self.door_rects:
                 pygame.draw.rect(screen, (148, 87, 235), door, 3)
             
-            # Debug mode: Render player hitboxes
-            if self.player:
-                # Main rect (enemy detection) in yellow
-                pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
-                # Collision rect (obstacles) in green
-                pygame.draw.rect(screen, (0, 255, 0), self.player.collision_rect, 3)
+            # Debug mode: Player hitboxes are now drawn in player.render()
 
