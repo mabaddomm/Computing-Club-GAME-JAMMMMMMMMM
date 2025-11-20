@@ -10,6 +10,15 @@ from ui_elements import PresentCounter
 from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, L1_PRESENT_ITEM_GOAL
 
 
+class InteriorState:
+    """Stores the state of an interior for persistence"""
+    def __init__(self, level_num, enemy_positions, present_data, tree_positions):
+        self.level_num = level_num  # Which level configuration (1-4)
+        self.enemy_positions = enemy_positions  # List of (x, y) positions
+        self.present_data = present_data  # List of {'x': x, 'y': y, 'collected': bool}
+        self.tree_positions = tree_positions  # List of (x, y) positions
+
+
 class ChristmasLevel(Level):
     """Level that manages procedurally generated chunks on an infinite grid"""
     
@@ -88,6 +97,13 @@ class ChristmasLevel(Level):
         # Interior state
         self.current_interior = None
         self.is_in_interior = False
+        self.door_entry_x = 0
+        self.door_entry_y = 0
+        self.door_entry_chunk_pos = (0, 0)
+        
+        # Interior persistence - store interior states by chunk coordinates
+        # Format: {(chunk_x, chunk_y): InteriorState object}
+        self.saved_interiors = {}
         
         # Debug mode
         self.debug_mode = False
@@ -318,45 +334,90 @@ class ChristmasLevel(Level):
         self.player.x = max(padding, min(self.player.x, SCREEN_WIDTH - self.player.width - padding))
         self.player.y = max(padding, min(self.player.y, SCREEN_HEIGHT - self.player.height - padding))
     
-    def _create_interior_1(self):
+    def _get_interior_level_config(self, level_num):
+        """Get the configuration for a specific interior level (1-4)
+        
+        Args:
+            level_num: Interior level number (1-4)
+            
+        Returns:
+            dict with 'walls', 'enemy_areas', 'tree_areas' lists
+        """
+        configs = {
+            1: {  # Level 1 - Complex room divisions
+                'walls': [
+                    # Border walls
+                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
+                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
+                    # Interior walls
+                    Wall(0, 350, 180, 20), Wall(300, 350, 220, 20),
+                    Wall(520, 350, 20, 100), Wall(520, 600, 20, 200),
+                    Wall(780, 0, 20, 500)
+                ],
+                'enemy_areas': [(270, 400, 200, 200), (810, 300, 440, 300)],
+                'tree_areas': [(30, 380, 150, 310), (30, 30, 500, 170), (810, 30, 440, 300)]
+            },
+            2: {  # Level 2 - Central divider
+                'walls': [
+                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
+                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
+                    Wall(500, 100, 20, 500), Wall(200, 300, 700, 20)
+                ],
+                'enemy_areas': [(100, 100, 300, 200), (900, 400, 200, 200)],
+                'tree_areas': [(600, 150, 250, 300)]
+            },
+            3: {  # Level 3 - L-shaped wall
+                'walls': [
+                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
+                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
+                    Wall(300, 300, 600, 20), Wall(300, 300, 20, 300)
+                ],
+                'enemy_areas': [(200, 200, 250, 250)],
+                'tree_areas': [(700, 450, 300, 300)]
+            },
+            4: {  # Level 4 - Vertical divider
+                'walls': [
+                    Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720),
+                    Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
+                    Wall(600, 150, 20, 450)
+                ],
+                'enemy_areas': [(150, 150, 200, 200), (900, 300, 250, 200)],
+                'tree_areas': [(400, 300, 300, 300)]
+            }
+        }
+        return configs.get(level_num, configs[1])  # Default to level 1 if invalid
+    
+    def _create_interior_1(self, level_num=None, saved_state=None):
         """Create an Interior_1 instance with level configuration
         
+        Args:
+            level_num: Which level to create (1-4). If None, randomly select
+            saved_state: InteriorState object to restore from, or None for new interior
+            
         Returns:
             Interior_1 scene
         """
-        # Define wall layout (border walls + some interior walls)
-        walls = [
-            Wall(0, 0, SCREEN_WIDTH, 20),  # Top
-            Wall(0, 0, 20, SCREEN_HEIGHT),  # Left
-            Wall(0, SCREEN_HEIGHT - 20, SCREEN_WIDTH, 20),  # Bottom
-            Wall(SCREEN_WIDTH - 20, 0, 20, SCREEN_HEIGHT),  # Right
-            Wall(300, 200, 400, 20),  # Interior wall 1
-            Wall(300, 200, 20, 300),  # Interior wall 2
-        ]
+        # Determine level number
+        if level_num is None:
+            level_num = random.randint(1, 4)
         
-        # Define spawn areas (x, y, width, height)
-        enemy_spawn_areas = [
-            (100, 100, 200, 200),  # Top left area
-            (800, 150, 300, 250),  # Top right area
-        ]
-        
-        tree_spawn_areas = [
-            (400, 400, 200, 300),  # Bottom middle-left
-            (900, 500, 250, 300),  # Bottom right
-        ]
+        # Get level configuration
+        config = self._get_interior_level_config(level_num)
         
         # Create Interior_1 with configuration
         interior = Interior_1(
-            walls=walls,
-            enemy_spawn_areas=enemy_spawn_areas,
-            tree_spawn_areas=tree_spawn_areas,
+            walls=config['walls'],
+            enemy_spawn_areas=config['enemy_areas'],
+            tree_spawn_areas=config['tree_areas'],
             num_enemies=3,
             num_presents=8,  # Target (actual number depends on tree placement)
             num_trees=3,
             level=self,
-            name="Interior 1"
+            name=f"Interior {level_num}",
+            saved_state=saved_state  # Pass saved state for restoration
         )
         
+        print(f"🏠 Created Interior Level {level_num}")
         return interior
     
     def enter_interior(self):
@@ -387,8 +448,17 @@ class ChristmasLevel(Level):
             interior.set_player(self.player)
         else:
             # Regular interior using Interior_1 with procedural spawning
-            interior = self._create_interior_1()
-            print("🏠 Entering Interior_1 - Advanced stealth challenge")
+            # Check if this chunk already has a saved interior
+            saved_state = self.saved_interiors.get(self.current_chunk_pos)
+            
+            if saved_state:
+                # Restore previous interior
+                interior = self._create_interior_1(level_num=saved_state.level_num, saved_state=saved_state)
+                print(f"🏠 Restoring Interior Level {saved_state.level_num}")
+            else:
+                # Create new random interior
+                interior = self._create_interior_1()
+                print("🏠 Entering new Interior - Advanced stealth challenge")
             
             interior.set_player(self.player)
         
@@ -405,6 +475,10 @@ class ChristmasLevel(Level):
         if not self.is_in_interior:
             return
         
+        # Save interior state before exiting (if it's an Interior_1)
+        if isinstance(self.current_interior, Interior_1):
+            self._save_interior_state(self.door_entry_chunk_pos, self.current_interior)
+        
         # Return to the chunk we were in
         self.is_in_interior = False
         self.current_interior = None
@@ -415,6 +489,34 @@ class ChristmasLevel(Level):
         
         # Reset player position and state (clears caught status, velocities, etc.)
         self.player.reset_for_new_round(self.door_entry_x, self.door_entry_y + 45)
+    
+    def _save_interior_state(self, chunk_pos, interior):
+        """Save the state of an interior for later restoration
+        
+        Args:
+            chunk_pos: (x, y) chunk coordinates
+            interior: Interior_1 instance to save
+        """
+        # Extract level number from interior name
+        level_num = interior.level_num if hasattr(interior, 'level_num') else 1
+        
+        # Save enemy positions
+        enemy_positions = [(e.x, e.y) for e in interior.enemies]
+        
+        # Save present data (position and collected status)
+        present_data = [
+            {'x': p.x, 'y': p.y, 'collected': p.is_collected}
+            for p in interior.presents
+        ]
+        
+        # Save tree positions
+        tree_positions = [(t.full_x, t.full_y) for t in interior.trees]
+        
+        # Create and store state
+        state = InteriorState(level_num, enemy_positions, present_data, tree_positions)
+        self.saved_interiors[chunk_pos] = state
+        
+        print(f"💾 Saved interior state for chunk {chunk_pos}: Level {level_num}, {len(enemy_positions)} enemies, {len(present_data)} presents")
     
     def restart_game(self):
         """Request game restart from main Game class"""

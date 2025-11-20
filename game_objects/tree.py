@@ -9,8 +9,8 @@ class Tree(GameObject):
     """Christmas tree obstacle with collision box at base"""
     
     # Tree dimensions
-    TREE_WIDTH = 140
-    TREE_HEIGHT = 180
+    TREE_WIDTH = 110
+    TREE_HEIGHT = 150
     TREE_IMAGE = None  # Class variable for cached image
     
     def __init__(self, x, y):

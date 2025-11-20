@@ -9,12 +9,12 @@ from config.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 
 
 # Constants for tree and present spawning
-TREE_WIDTH = 140
-TREE_HEIGHT = 180
+TREE_WIDTH = 110
+TREE_HEIGHT = 150
 PRESENT_SIZE = 40
 TREE_MARGIN = 40
-TREE_MIN_RADIUS = max(TREE_WIDTH, TREE_HEIGHT) // 6 + TREE_MARGIN  # ~130px
-TREE_MAX_RADIUS = TREE_MIN_RADIUS + 30  # ~160px
+TREE_MIN_RADIUS = max(TREE_WIDTH, TREE_HEIGHT) // 6 + TREE_MARGIN  # ~65px
+TREE_MAX_RADIUS = TREE_MIN_RADIUS + 30  # ~95px
 TREE_MIN_SEPARATION = 30
 
 
@@ -22,7 +22,7 @@ class Interior_1(Scene):
     """Advanced interior scene with procedural enemy, tree, and present spawning"""
     
     def __init__(self, walls, enemy_spawn_areas, tree_spawn_areas, 
-                 num_enemies, num_presents, num_trees, level=None, name="Interior 1"):
+                 num_enemies, num_presents, num_trees, level=None, name="Interior 1", saved_state=None):
         """Initialize Interior_1 with spawn configuration
         
         Args:
@@ -34,10 +34,14 @@ class Interior_1(Scene):
             num_trees: Number of trees to spawn
             level: Reference to parent level for tracking state
             name: Scene name
+            saved_state: InteriorState object for restoration, or None for new interior
         """
         super().__init__(name)
         self.level = level
-        self.background_color = (50, 50, 50)  # Dark grey
+        self.background_color = (152, 116, 86)  # Brown/tan floor color
+        
+        # Store level number for saving/loading
+        self.level_num = saved_state.level_num if saved_state else int(name.split()[-1]) if name.split()[-1].isdigit() else 1
         
         # Store spawn configuration
         self.walls = walls
@@ -70,18 +74,51 @@ class Interior_1(Scene):
         for wall in self.walls:
             self.add_game_object(wall)
         
-        # Spawn trees first (they define where presents go)
-        self.trees = self.spawn_trees()
-        for tree in self.trees:
-            self.add_game_object(tree)
-        
-        # Spawn enemies (don't add to game_objects - we'll update them manually)
-        self.enemies = self.spawn_enemies()
-        
-        # Spawn presents around trees (don't add to game_objects - we'll update them manually)
-        self.presents = self.spawn_presents_around_trees()
+        # Either restore from saved state or generate new
+        if saved_state:
+            # Restore from saved state
+            self._restore_from_state(saved_state)
+        else:
+            # Generate new interior
+            # Spawn trees first (they define where presents go)
+            self.trees = self.spawn_trees()
+            for tree in self.trees:
+                self.add_game_object(tree)
+            
+            # Spawn enemies (don't add to game_objects - we'll update them manually)
+            self.enemies = self.spawn_enemies()
+            
+            # Spawn presents around trees (don't add to game_objects - we'll update them manually)
+            self.presents = self.spawn_presents_around_trees()
         
         print(f"🏠 Interior_1 created: {len(self.enemies)} enemies, {len(self.trees)} trees, {len(self.presents)} presents")
+    
+    def _restore_from_state(self, saved_state):
+        """Restore interior from saved state
+        
+        Args:
+            saved_state: InteriorState object with saved positions and data
+        """
+        from game_objects import Child, Present, Tree
+        
+        # Restore trees at their exact positions
+        for (tree_x, tree_y) in saved_state.tree_positions:
+            tree = Tree(tree_x, tree_y)
+            self.trees.append(tree)
+            self.add_game_object(tree)
+        
+        # Restore enemies at their saved positions
+        for (enemy_x, enemy_y) in saved_state.enemy_positions:
+            enemy = Child(enemy_x, enemy_y, speed=100)
+            self.enemies.append(enemy)
+        
+        # Restore presents with their collected status
+        for present_info in saved_state.present_data:
+            if not present_info['collected']:  # Only restore uncollected presents
+                present = Present(present_info['x'], present_info['y'])
+                self.presents.append(present)
+        
+        print(f"📦 Restored from state: {len(self.trees)} trees, {len(self.enemies)} enemies, {len(self.presents)} presents")
     
     def set_player(self, player):
         """Set the player for this interior
@@ -394,6 +431,55 @@ class Interior_1(Scene):
         # Always update base scene
         super().update(dt)
     
+    def _render_debug_spawn_zones(self, screen):
+        """Render spawn zones for debugging
+        
+        Args:
+            screen: Pygame screen surface
+        """
+        # Create translucent surface
+        debug_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        
+        # Draw enemy spawn areas in yellow
+        for area in self.enemy_spawn_areas:
+            x, y, w, h = area
+            rect = pygame.Rect(x, y, w, h)
+            pygame.draw.rect(debug_surface, (255, 255, 0, 60), rect)  # Yellow with transparency
+            pygame.draw.rect(debug_surface, (255, 255, 0, 180), rect, 2)  # Yellow outline
+        
+        # Draw tree spawn areas in green
+        for area in self.tree_spawn_areas:
+            x, y, w, h = area
+            rect = pygame.Rect(x, y, w, h)
+            pygame.draw.rect(debug_surface, (0, 255, 0, 60), rect)  # Green with transparency
+            pygame.draw.rect(debug_surface, (0, 255, 0, 180), rect, 2)  # Green outline
+        
+        screen.blit(debug_surface, (0, 0))
+    
+    def _render_debug_hitboxes(self, screen):
+        """Render collision boxes and present spawn ranges for debugging
+        
+        Args:
+            screen: Pygame screen surface
+        """
+        # Draw enemy collision rects in red
+        for enemy in self.enemies:
+            pygame.draw.rect(screen, (255, 0, 0), enemy.rect, 2)
+        
+        # Draw player collision rect in yellow
+        if self.player:
+            pygame.draw.rect(screen, (255, 255, 0), self.player.rect, 2)
+        
+        # Draw door rect in blue
+        pygame.draw.rect(screen, (0, 0, 255), self.door, 2)
+        
+        # Draw present spawn ranges around trees
+        for tree in self.trees:
+            center = tree.get_full_sprite_center()
+            # Draw min and max radius circles
+            pygame.draw.circle(screen, (255, 255, 100), center, TREE_MIN_RADIUS, 1)
+            pygame.draw.circle(screen, (255, 255, 100), center, TREE_MAX_RADIUS, 1)
+    
     def render(self, screen):
         """Render interior with Z-ordering
         
@@ -404,6 +490,10 @@ class Interior_1(Scene):
         screen.fill(self.background_color)
         
         if self.game_state == 'PLAYING':
+            # Debug: Draw spawn zones BEFORE game objects (so they're behind)
+            if self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode:
+                self._render_debug_spawn_zones(screen)
+            
             # Render walls
             for wall in self.walls:
                 wall.render(screen)
@@ -432,6 +522,10 @@ class Interior_1(Scene):
                     obj.render(screen)
                 else:
                     obj.render(screen)
+            
+            # Debug: Draw hitboxes and spawn ranges AFTER game objects (so they're on top)
+            if self.level and hasattr(self.level, 'debug_mode') and self.level.debug_mode:
+                self._render_debug_hitboxes(screen)
         
         elif self.game_state == 'CAUGHT':
             # Draw black screen with message
