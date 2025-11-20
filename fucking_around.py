@@ -1,11 +1,11 @@
 import pygame
 import math
 import random
-import os
-
-from pygame.sprite import collide_rect
 
 # --- Pygame Setup Constants ---
+
+current_track = None
+
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
@@ -440,7 +440,7 @@ class Enemy(GameObject):
         enemy_sheet = create_placeholder_sprite_sheet(ENEMY_WIDTH, ENEMY_HEIGHT, 'enemy')
         super().__init__(x, y, ENEMY_WIDTH, ENEMY_HEIGHT, sprite_sheet=enemy_sheet, speed=2)
 
-        self.sight_range = 180
+        self.sight_range = 130
         self.field_of_view = math.radians(60)
         self.facing_angle = 0.0
         self.move_timer = 0
@@ -778,10 +778,10 @@ class Present(GameObject):
 
         # UI
         if self.check_interaction_proximity(player) and not self.is_collecting:
-            interact_text = self.font_medium.render("PRESS E TO INTERACT", True, COLORS['YELLOW'])
+            interact_text = self.font_medium.render("PRESS E TO INTERACT", True, COLORS['WHITE'])
             text_rect = interact_text.get_rect(center=(self.rect.centerx, self.rect.top - 40))
-            bg_rect = text_rect.inflate(10, 5)
-            pygame.draw.rect(screen, COLORS['BLACK'], bg_rect, border_radius=3)
+            #bg_rect = text_rect.inflate(10, 5)
+            #pygame.draw.rect(screen, COLORS['BLACK'], bg_rect, border_radius=1)
             screen.blit(interact_text, text_rect)
 
         if self.is_collecting:
@@ -833,17 +833,37 @@ class Level:
         self.num_trees = num_trees
 
         self.door = pygame.Rect(DOOR_RECT)
+        DOOR_INTERACT_SIZE = 100
+        self.door_interaction_rect = self.door.inflate(DOOR_INTERACT_SIZE, DOOR_INTERACT_SIZE)
+
+
         self.player_spawn_x = PLAYER_SPAWN_IN_LEVEL[0]
         self.player_spawn_y = PLAYER_SPAWN_IN_LEVEL[1]
 
         # Spawn trees first (they define where presents go)
         self.trees = self.spawn_trees()
-
-        # Spawn enemies (unchanged)
         self.enemies = self.spawn_enemies()
-
-        # Spawn presents around trees
         self.presents = self.spawn_presents_around_trees()
+
+    def check_door_proximity(self, player):
+        """Checks if the player is within the door's interaction bubble."""
+        return self.door_interaction_rect.colliderect(player.rect)
+
+    def render_door_ui(self, screen, ui_font):
+        """Renders the interaction prompt for the door."""
+        # Draw interaction bubble
+        door_interact_color = (255, 200, 100, 30)
+        door_interact_surface = pygame.Surface(self.door_interaction_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(door_interact_surface, door_interact_color, door_interact_surface.get_rect(), border_radius=5)
+        screen.blit(door_interact_surface, self.door_interaction_rect.topleft)
+
+        # Draw prompt text
+        interact_text = ui_font.render("PRESS E TO LEAVE", True, COLORS['WHITE'])
+        text_rect = interact_text.get_rect(center=(self.door.centerx, self.door.top - 20))
+        #bg_rect = text_rect.inflate(10, 5)
+        #pygame.draw.rect(screen, COLORS['BLACK'], bg_rect, border_radius=1)
+        screen.blit(interact_text, text_rect)
+
 
     def random_point_in_area(self, area, obj_width, obj_height, margin=0):
         x, y, w, h = area
@@ -1038,18 +1058,28 @@ def line_blocked_by_walls(p1, p2, walls):
             return True
     return False
 
+def play_music(track):
+    global current_track
+    if current_track == track:
+        return
+    current_track = track
+    pygame.mixer.music.load(track)
+    pygame.mixer.music.play(-1)
+
 
 # --- Main Game Execution (REVISED FOR Z-ORDERING) ---
 def run_game():
     """Initializes Pygame, sets up objects, and runs the main game loop."""
     pygame.init()
+    pygame.mixer.init()
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Pygame Stealth Game")
 
     clock = pygame.time.Clock()
+    collect_sound = pygame.mixer.Sound("present_collected.mp3")
 
-    ui_font = pygame.font.Font(None, 36)
+    ui_font = pygame.font.Font(None, 24)
     game_over_font = pygame.font.Font(None, 72)
 
     global score
@@ -1078,28 +1108,30 @@ def run_game():
                            (30, 30, 500, 170),
                            (810, 30, 440, 300)]},
 
-
         "level2": {
-            "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                      Wall(500, 100, 20, 500), Wall(200, 300, 700, 20)],
-            "enemy_areas": [(100, 100, 300, 200), (900, 400, 200, 200)],
-            "tree_areas": [(600, 150, 250, 300)]},
-        "level3": {
-            "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                      Wall(300, 300, 600, 20), Wall(300, 300, 20, 300)],
-            "enemy_areas": [(200, 200, 250, 250)],
-            "tree_areas": [(700, 450, 300, 300)]},
-        "level4": {
-            "walls": [Wall(0, 0, 1280, 20), Wall(0, 0, 20, 720), Wall(0, 700, 1280, 20), Wall(1260, 0, 20, 720),
-                      Wall(600, 150, 20, 450)],
-            "enemy_areas": [(150, 150, 200, 200), (900, 300, 250, 200)],
-            "tree_areas": [(400, 300, 300, 300)]}
+            "walls": [Wall(0, 0, 1280, 20),
+                      Wall(0, 0, 20, 720),
+                      Wall(0, 700, 1280, 20),
+                      Wall(1260, 0, 20, 720),
+
+                      Wall(655, 150, 20, 400),
+                      Wall(300, 340, 700, 20),
+                      Wall(0, 340, 150, 20),
+                      Wall(1150, 340, 200, 20)
+                      ],
+            "enemy_areas": [(380, 30, 150, 300),
+                            (850, 30, 150, 300),
+                            (900, 400, 200, 200),
+                            (200, 400, 200, 200)
+                            ],
+            "tree_areas": [(30, 30, 130, 300),
+                           (1120, 30, 130, 300),
+                           (30, 520, 130, 170),
+                           (1120, 520, 130, 170)]}
     }
 
     def load_random_level():
-# TESTING level1
-        #key = random.choice(list(LEVELS.keys()))
-        key = "level1"
+        key = random.choice(list(LEVELS.keys()))
         data = LEVELS[key]
 
         return Level(
@@ -1123,6 +1155,8 @@ def run_game():
 
     enemies = level.enemies
     present_objects = level.presents
+
+    door_ready_to_exit = False
 
     running = True
     print("--- Pygame Game Started (Stealth Mode) ---")
@@ -1153,6 +1187,8 @@ def run_game():
 
         # --- Update All Objects ---
         if game_state == 'PLAYING':
+            # adds in music here
+            play_music("inside_music.mp3")
 
             # Solids that *don't* move (Walls, Trees, Presents)
             static_solids = walls_for_los + present_objects  # walls_for_los already includes trees
@@ -1162,6 +1198,8 @@ def run_game():
 
             # 1. Update Player (pass ALL_OBSTACLES for movement collision, and walls_for_los for LOS check)
             player.update(enemies, ALL_OBSTACLES, walls_for_los)
+
+            door_ready_to_exit = level.check_door_proximity(player)
 
             # 2. Update and check present collection
             if e_pressed:
@@ -1179,11 +1217,12 @@ def run_game():
             for present in present_objects:
                 present.update(player)
                 if present.is_collected:
+                    collect_sound.play()
                     score += PRESENT_COLLECTION_VALUE
                     print(f"Score increased! New Score: {score}")
 
             # Player uses the exit door
-            if player.rect.colliderect(level.door):
+            if door_ready_to_exit and e_pressed:  # Check for proximity AND 'E' press
                 game_state = 'OUTSIDE'
                 # finish the frame early to avoid using corrupted input later
                 screen.fill((255, 255, 255))
@@ -1210,6 +1249,9 @@ def run_game():
                 wall.render(screen)
             pygame.draw.rect(screen, (255,228,196), level.door)
 
+            if door_ready_to_exit:
+                level.render_door_ui(screen, ui_font)
+
             # 2. Prepare for depth sorting (Z-ordering)
             all_render_objects = (
                     [player] +
@@ -1228,14 +1270,14 @@ def run_game():
                 elif isinstance(obj, Enemy):
                     # Enemy needs walls_for_los for the sight cone calculation
                     obj.render(screen, walls_for_los)
-                elif isinstance(obj, Present):
-                    # Present needs player for interaction UI
-                    obj.render(screen, player)
                 elif isinstance(obj, Tree):
                     # Tree is rendered, which includes the full 180px image
                     obj.render(screen)
                     # Draw the debug spawn range circle *over* the tree.
                     obj.render_spawn_range(screen)
+                elif isinstance(obj, Present):
+                    # Present needs player for interaction UI
+                    obj.render(screen, player)
 
                     # DEBUG: boxes (delete later)
             for enemy in enemies:
@@ -1253,6 +1295,8 @@ def run_game():
             screen.blit(score_text, (10, 10))
 
         elif game_state == 'CAUGHT':
+            #ADD MUSIC SOUND EFFECT
+            play_music("player_caught.mp3")
             # Draw black screen during kickout timer
             pygame.draw.rect(screen, COLORS['BLACK'], (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 0)
 
@@ -1265,6 +1309,9 @@ def run_game():
                 print("--- RESUMING GAME ---")
 
         elif game_state == 'OUTSIDE':
+            #ADD MUSIC
+            play_music("outside_music.mp3")
+
             screen.fill((255, 255, 255))  # white background
 
             msg = game_over_font.render("OUTSIDE", True, (0, 0, 0))
@@ -1274,7 +1321,7 @@ def run_game():
 
         elif game_state == 'GAME_OVER':
             pygame.draw.rect(screen, COLORS['BLACK'], (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 0)
-
+            play_music("game-over.mp3")
             msg = game_over_font.render("GAME OVER", True, COLORS['RED'])
             sub_msg = ui_font.render(f"Final Score: {score} | Close the window to exit", True, COLORS['WHITE'])
 
